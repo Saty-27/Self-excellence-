@@ -1,0 +1,245 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Typography roles — one family per role, nothing else */
+    --font-display: "Playfair Display", Georgia, serif;
+    --font-body: "Poppins", system-ui, -apple-system, sans-serif;
+    --font-deva: "Tiro Devanagari Hindi", serif;
+    --font-script: "Great Vibes", cursive;
+
+    /* Colour tokens, mirrored from the Tailwind theme */
+    --primary: #C1121F;
+    --primary-dark: #9B0D18;
+    --saffron: #E8590C;
+    --gold: #D4A017;
+    --heading: #1C1410;
+    --text: #3D3530;
+    --text-muted: #7A6E66;
+    --bg: #FFFFFF;
+    --bg-cream: #FFF8F0;
+    --bg-warm: #FDF1E4;
+    --border: #F0E2D3;
+    --footer-bg: #1A1412;
+  }
+
+  html, body {
+    max-width: 100%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+  }
+
+  iframe {
+    max-width: 100% !important;
+  }
+
+  .aspect-video iframe {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  ::selection {
+    @apply bg-primary text-white;
+  }
+}
+
+@layer utilities {
+  .container-pad {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-pad {
+    @apply py-16 lg:py-24;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@keyframes jiggle {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-10deg); }
+  75% { transform: rotate(4deg); }
+}
+
+.animate-jiggle {
+  animation: jiggle 0.8s ease-in-out infinite;
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+
+/* ============================================================
+   ISKCON Juhu — Self Excellence hero
+   ============================================================ */
+
+@keyframes heroRise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroArtworkIn {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* `both` fill carries the from-state through the delay, so the hidden
+   start lives in the keyframes rather than the base rule: if the
+   animation never runs, the hero is visible instead of blank. */
+.hero-rise {
+  animation: heroRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-artwork-in {
+  animation: heroArtworkIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-delay-1 { animation-delay: 0.08s; }
+.hero-delay-2 { animation-delay: 0.18s; }
+.hero-delay-3 { animation-delay: 0.28s; }
+.hero-delay-4 { animation-delay: 0.38s; }
+.hero-delay-5 { animation-delay: 0.48s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise,
+  .hero-artwork-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Keeps the heading from going ragged on very narrow phones */
+.hero-heading {
+  text-wrap: balance;
+}
+
+
+/* Article body inside blog / video-blog detail pages */
+.blog-prose h1,
+.blog-prose h2,
+.blog-prose h3,
+.blog-prose h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #171513;
+  line-height: 1.15;
+}
+.blog-prose h2 { font-size: 30px; margin-top: 2rem; margin-bottom: 0.75rem; }
+.blog-prose h3 { font-size: 24px; margin-top: 1.75rem; margin-bottom: 0.6rem; }
+.blog-prose p { margin-bottom: 1.1rem; }
+.blog-prose a { color: #C84E2C; text-decoration: underline; text-underline-offset: 3px; }
+.blog-prose ul,
+.blog-prose ol { margin: 1rem 0 1.25rem 1.25rem; }
+.blog-prose ul { list-style: disc; }
+.blog-prose ol { list-style: decimal; }
+.blog-prose li { margin-bottom: 0.45rem; }
+.blog-prose blockquote {
+  border-left: 3px solid #C99A5B;
+  padding-left: 1rem;
+  font-family: var(--font-display);
+  font-size: 21px;
+  color: #3A332C;
+  margin: 1.5rem 0;
+}
+.blog-prose img { border-radius: 12px; margin: 1.25rem 0; }
+.blog-prose strong { font-weight: 700; color: #2E2822; }
+
+
+/* Carousel rails: scrollable without a visible scrollbar */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+
+/* ============================================================
+   Redesign system — type scale, section shell, motion
+   ============================================================ */
+
+/* Fluid type scale (clamp so nothing drops below 13px) */
+.t-hero      { font-size: clamp(2.625rem, 5.2vw, 4.75rem); line-height: 1.05; letter-spacing: -0.5px; }
+.t-h2        { font-size: clamp(2rem, 3.4vw, 3rem);        line-height: 1.15; }
+.t-sub       { font-size: clamp(1rem, 1.1vw, 1.125rem);    line-height: 1.6; }
+.t-body      { font-size: clamp(1rem, 1.05vw, 1.0625rem);  line-height: 1.7; }
+.t-card-lg   { font-size: 1.375rem; line-height: 1.3; }
+.t-card-sm   { font-size: 1.125rem; line-height: 1.35; }
+.t-meta      { font-size: 0.90625rem; }
+.t-eyebrow   { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 2px; }
+.t-btn       { font-size: 0.96875rem; }
+
+/* Page shell: wide container so sections fill the screen */
+.shell { width: 100%; max-width: 1320px; margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 768px) { .shell { padding-inline: 24px; } }
+
+.section-y { padding-block: 72px; }
+@media (min-width: 1024px) { .section-y { padding-block: 110px; } }
+
+/* Signature two-tone heading: accent word carries the gradient */
+.accent-gradient {
+  background-image: linear-gradient(90deg, var(--primary) 0%, var(--saffron) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Scroll reveal */
+@keyframes revealUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+.reveal { opacity: 0; }
+.reveal.is-in { animation: revealUp 0.6s ease-out forwards; }
+
+/* Slow hero breathing zoom */
+@keyframes heroDrift { from { transform: scale(1); } to { transform: scale(1.04); } }
+.hero-drift { animation: heroDrift 12s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal.is-in { opacity: 1 !important; animation: none !important; transform: none !important; }
+  .hero-drift { animation: none !important; }
+}

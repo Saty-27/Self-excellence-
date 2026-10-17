@@ -1,0 +1,7 @@
+<svg width="220" height="60" viewBox="0 0 220 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="60" height="60" rx="16" fill="#111111"/>
+  <path d="M30 10C37 19 45 25 54 30C45 35 37 41 30 50C23 41 15 35 6 30C15 25 23 19 30 10Z" fill="#F52246"/>
+  <circle cx="30" cy="30" r="8" fill="#fff"/>
+  <text x="76" y="27" fill="#111111" font-family="Arial, sans-serif" font-size="18" font-weight="800">ISKCON Juhu</text>
+  <text x="76" y="47" fill="#F52246" font-family="Arial, sans-serif" font-size="16" font-weight="700">IPP</text>
+</svg>
