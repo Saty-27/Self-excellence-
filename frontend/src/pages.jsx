@@ -145,6 +145,7 @@ const active = (section) => section && section.status !== "inactive";
 
 export const HomePage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const sections = useList("/page-sections/home", fallbackHomeSections).items;
   const map = sectionMap(sections);
   const bannersState = useList("/banners/active", []);
@@ -264,7 +265,8 @@ export const HomePage = () => {
               }
             : featuredJourney
         }
-        onBook={() => setBookingOpen(true)}
+        onBook={() => (featuredPilgrimage ? setBookingOpen(true) : navigate("/trips"))}
+        onViewAll={() => navigate("/trips")}
       />
 
       <PilgrimageBookingModal
