@@ -211,13 +211,15 @@ export const TripsPage = () => {
 
       {/* Filters */}
       <section className="sticky top-[68px] z-30 border-b border-line bg-white/95 backdrop-blur-[12px] lg:top-[84px]">
-        <div className={`${SHELL} flex flex-wrap items-center gap-2.5 py-4`}>
+        {/* Grid, not flex-wrap: four controls of differing text length
+            were landing in ragged rows of 1-2-1 at phone width. */}
+        <div className={`${SHELL} grid grid-cols-2 gap-2.5 py-4 min-[900px]:flex min-[900px]:flex-wrap min-[900px]:items-center`}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               set("search", searchDraft.trim());
             }}
-            className="relative flex-1 min-w-[200px]"
+            className="relative col-span-2 min-[900px]:flex-1 min-[900px]:min-w-[200px]"
           >
             <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden="true" />
             <input
@@ -256,7 +258,7 @@ export const TripsPage = () => {
           </select>
 
           {activeCount > 0 && (
-            <button type="button" onClick={clearAll} className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 font-ui text-[13px] font-semibold text-primary transition-colors hover:bg-primary/5">
+            <button type="button" onClick={clearAll} className="col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-line px-3 font-ui text-[13px] font-semibold text-primary transition-colors hover:bg-primary/5 min-[900px]:col-span-1 min-[900px]:justify-start min-[900px]:border-0">
               <X size={14} /> Clear
             </button>
           )}

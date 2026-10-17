@@ -373,7 +373,10 @@ export const MediaReflectionsSection = ({
               />
               <button
                 type="submit"
-                className="group inline-flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-full bg-[#9B0D18] px-7 font-ui text-[14px] font-semibold text-white transition-colors duration-[250ms] hover:bg-[#7A0A12] xs:h-full"
+                /* Below xs the form stacks straight onto the red band, so the
+                   button inverts to white; inside the white pill it goes back
+                   to deep red. */
+                className="group inline-flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-full bg-white px-7 font-ui text-[15px] font-semibold text-[#9B0D18] shadow-[0_6px_20px_rgba(0,0,0,0.18)] transition-colors duration-[250ms] hover:bg-[#FFF1E6] xs:h-full xs:bg-[#9B0D18] xs:text-[14px] xs:text-white xs:shadow-none xs:hover:bg-[#7A0A12]"
               >
                 Subscribe
                 <Arrow className="h-3.5 w-3.5 transition-transform duration-[250ms] group-hover:translate-x-1" />
