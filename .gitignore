@@ -10,10 +10,18 @@ node_modules/
 .env.*.local
 
 # ---- user uploads ----
-# Devotee payment receipts, enrolment documents and chat attachments live
-# here. They are private records and must not go into source control.
-backend/uploads/
-uploads/
+# Site imagery (banners, course and teacher photos) IS tracked, so a clone
+# renders correctly. Two categories are deliberately excluded:
+#
+#   lessons/   video files, several over GitHub's 100MB per-file hard limit
+#   the rest   devotee payment receipts, enrolment documents and chat
+#              attachments — private records that do not belong in a repo
+backend/uploads/lessons/
+backend/uploads/payment-receipts/
+backend/uploads/pilgrimage-payments/
+backend/uploads/trips-payment/
+backend/uploads/enrollment-requests/
+backend/uploads/chat/
 
 # ---- build output ----
 dist/
