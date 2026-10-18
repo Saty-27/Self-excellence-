@@ -70,8 +70,9 @@ const IMG = {
   teacher4: "/uploads/visionaries/1782483929816-kcd.jpg",
   teacher5: "/uploads/visionaries/1782485331212-kcd_katha.jpg",
   teacher6: "/uploads/visionaries/1783174302832-rvp.jpg",
-  hayagriva: "/uploads/visionaries/hayagriva-charan-das.png",
+  hayagriva: "/uploads/visionaries/hayagriva-charan-das-portrait.webp",
   akshobhya: "/uploads/visionaries/akshobhya-das.png",
+  adbhuta: "/uploads/visionaries/adbhuta-hari-prabhu.webp",
   class1: "/uploads/upcoming-classes/1783225094020-ssrr.jpg",
   class2: "/uploads/upcoming-classes/1783225204239-b71ac1f34f7fd12d6a95ffd66701548b.jpg",
   class3: "/uploads/upcoming-classes/1778939109159-group-32.png",
@@ -99,10 +100,10 @@ const IMG = {
 const LESSON_VIDEOS = [
   ["Mo-cAoCmwXA", "The Life We\u2019ve Been Searching For", "the-life-weve-been-searching-for", "HG Narada Rishi Das"],
   ["vudyS5nKA3Y", "The Appearance of Lord Krishna", "the-appearance-of-lord-krishna", "HG Satya Govinda Prabhu"],
-  ["UEF-PpQETos", "How to Please Srimati Radharani", "how-to-please-srimati-radharani", "HG Adbhuta Hari Das"],
-  ["bBtdbTXHtnk", "Significance of Ganesh Chaturthi", "significance-of-ganesh-chaturthi", "HG Adbhuta Hari Das"],
+  ["UEF-PpQETos", "How to Please Srimati Radharani", "how-to-please-srimati-radharani", "Adbhuta Hari Prabhu"],
+  ["bBtdbTXHtnk", "Significance of Ganesh Chaturthi", "significance-of-ganesh-chaturthi", "Adbhuta Hari Prabhu"],
   ["EvZchtCHnQk", "The Service That Krishna Sees", "the-service-that-krishna-sees", "ISKCON Juhu drama team"],
-  ["AzuOcbqUQR4", "Inviting Krishna Into Our Hearts", "inviting-krishna-into-our-hearts", "HG Adbhuta Hari Das"],
+  ["AzuOcbqUQR4", "Inviting Krishna Into Our Hearts", "inviting-krishna-into-our-hearts", "Adbhuta Hari Prabhu"],
   ["g5S9iEwxfck", "\u0935\u093f\u0930\u093e\u091f \u0930\u0942\u092a \u0915\u093e \u0926\u0930\u094d\u0936\u0928", "virat-rup-ka-darshan", "HG Hayagriva Charan Das"],
   ["mA-VE_gaQms", "\u092a\u0942\u0924\u0928\u093e \u0935\u0927", "putana-vadha", "HG Hayagriva Charan Das"],
   ["qnSlh7Fpoxs", "Breaking Free", "breaking-free", "Mr. Ajit Haldankar"]
@@ -341,7 +342,9 @@ const run = async () => {
     ["HG Akshobhya Das", "Kirtan & Youth Speaker", IMG.akshobhya, "Team Member", "",
       "Speaks at the Self-Excellence kirtan programmes at ISKCON Juhu."],
     ["HG Hayagriva Charan Das", "Katha Speaker", IMG.hayagriva, "Team Member", "",
-      "Speaks the Krishna Janmashtami katha series in Hindi at ISKCON Juhu."]
+      "Speaks the Krishna Janmashtami katha series in Hindi at ISKCON Juhu."],
+    ["Adbhuta Hari Prabhu", "Monk & Life Coach", IMG.adbhuta, "Team Member", "",
+      "Monk and life coach. Speaks on the festivals and on applying devotional principles to everyday life."]
   ].map(([name, designation, image, type, experience, shortBio], i) => ({
     name, slug: slugify(name), designation, image, type, experience, shortBio,
     fullBio: `${shortBio} ${name} is available to students through the doubt box and the weekly support sessions.`,
