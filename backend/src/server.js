@@ -73,6 +73,16 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+
+/* In production the app sits behind nginx, so every request arrives from
+   127.0.0.1 with the real client address in X-Forwarded-For. Trusting one
+   proxy hop makes req.ip the visitor's address again, which is what the
+   activity trail and login sessions record, and what the rate limiter
+   counts against. Without it express-rate-limit also refuses to start,
+   since it cannot tell visitors apart. One hop only: trusting the header
+   blindly would let anyone spoof their own address. */
+app.set("trust proxy", 1);
+
 const port = process.env.PORT || 5055;
 
 const server = http.createServer(app);
