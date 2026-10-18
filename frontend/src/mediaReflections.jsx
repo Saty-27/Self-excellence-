@@ -369,14 +369,17 @@ export const MediaReflectionsSection = ({
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="Enter your email"
-                className="h-[56px] min-w-0 flex-1 rounded-full border-0 bg-white px-6 font-ui text-[15px] text-[#1C1410] outline-none placeholder:text-[#7A6E66] xs:h-full xs:rounded-none xs:bg-transparent xs:px-0"
+                /* `flex-1` only once the form is a row: in the stacked
+                   layout it governs height instead of width and collapses
+                   the field to its text line. */
+                className="h-[56px] w-full min-w-0 rounded-full border-0 bg-white px-6 font-ui text-[16px] text-[#1C1410] outline-none placeholder:text-[#7A6E66] xs:h-full xs:flex-1 xs:rounded-none xs:bg-transparent xs:px-0 xs:text-[15px]"
               />
               <button
                 type="submit"
                 /* Below xs the form stacks straight onto the red band, so the
                    button inverts to white; inside the white pill it goes back
                    to deep red. */
-                className="group inline-flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-full bg-white px-7 font-ui text-[15px] font-semibold text-[#9B0D18] shadow-[0_6px_20px_rgba(0,0,0,0.18)] transition-colors duration-[250ms] hover:bg-[#FFF1E6] xs:h-full xs:bg-[#9B0D18] xs:text-[14px] xs:text-white xs:shadow-none xs:hover:bg-[#7A0A12]"
+                className="group inline-flex h-[56px] w-full shrink-0 items-center justify-center gap-2 rounded-full bg-white px-7 font-ui text-[15px] font-semibold text-[#9B0D18] shadow-[0_6px_20px_rgba(0,0,0,0.18)] transition-colors duration-[250ms] hover:bg-[#FFF1E6] xs:h-full xs:w-auto xs:bg-[#9B0D18] xs:text-[14px] xs:text-white xs:shadow-none xs:hover:bg-[#7A0A12]"
               >
                 Subscribe
                 <Arrow className="h-3.5 w-3.5 transition-transform duration-[250ms] group-hover:translate-x-1" />

@@ -120,6 +120,16 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  /* Google hands the browser an ID token; the server verifies it and
+     answers with our own JWT, exactly as a password sign-in would. */
+  const loginWithGoogle = async (credential) => {
+    const data = await apiFetch("/auth/google", { method: "POST", body: { credential } });
+    localStorage.setItem("iskcon_lms_token", data.token);
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  };
+
   const logout = () => {
     localStorage.removeItem("iskcon_lms_token");
     setToken(null);
@@ -133,6 +143,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       socket,
       login,
+      loginWithGoogle,
       register,
       verifyOtp,
       resendOtp,

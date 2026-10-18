@@ -11,6 +11,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
+import { OAuth2Client } from "google-auth-library";
 import { fileURLToPath } from "url";
 import {
   AboutPageSection,
@@ -394,7 +395,8 @@ const cleanUploadFolder = (value = "general") =>
     .join("/") || "general";
 const uploadRules = (folder) => {
   if (folder === "banners" || folder === "courses") return { extensions: [".jpg", ".jpeg", ".png", ".webp"], mime: /^image\/(jpeg|png|webp)$/ };
-  if (folder === "lessons/videos") return { extensions: [".mp4", ".webm", ".mov"], mime: /^(video\/mp4|video\/webm|video\/quicktime)$/ };
+  if (folder === "lessons/videos" || folder === "video-blogs/videos") return { extensions: [".mp4", ".webm", ".mov"], mime: /^(video\/mp4|video\/webm|video\/quicktime)$/ };
+  if (folder === "video-blogs") return { extensions: [".jpg", ".jpeg", ".png", ".webp"], mime: /^image\/(jpeg|png|webp)$/ };
   if (folder === "lessons/pdfs") return { extensions: [".pdf"], mime: /^application\/pdf$/ };
   return { extensions: [".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm", ".mov", ".pdf"], mime: /^(image\/(jpeg|png|webp)|video\/(mp4|webm|quicktime)|application\/pdf)$/ };
 };
@@ -445,7 +447,51 @@ const list = async (req, res, Model, filter = {}, options = {}) => {
   const query = Model.find(filter).sort(options.sort || { sortOrder: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit);
   if (options.populate) query.populate(options.populate);
   const [items, total] = await Promise.all([query.lean(), Model.countDocuments(filter)]);
-  res.json({ success: true, items, total, page, pages: Math.ceil(total / limit) || 1 });
+  res.json({
+    success: true,
+    items: options.decorate ? items.map(options.decorate) : items,
+    total,
+    page,
+    pages: Math.ceil(total / limit) || 1
+  });
+};
+
+/* ------------------------------------------------------------------
+   Video posters
+   ------------------------------------------------------------------
+   An admin may upload a thumbnail, but is not required to: left blank,
+   the still is taken from the video itself. Working that out here
+   rather than in each component means the homepage band, the videos
+   page and the admin list all show the same image.
+   ------------------------------------------------------------------ */
+
+const youtubeIdFrom = (url = "") => {
+  const m = String(url).match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : "";
+};
+const vimeoIdFrom = (url = "") => {
+  const m = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return m ? m[1] : "";
+};
+
+const decorateVideoBlog = (video) => {
+  if (!video) return video;
+  const youtubeId = youtubeIdFrom(video.videoUrl);
+  const vimeoId = vimeoIdFrom(video.videoUrl);
+  /* An uploaded file plays from our own server; anything else embeds. */
+  const isUpload = video.videoType === "upload" && Boolean(video.uploadedVideo);
+  return {
+    ...video,
+    youtubeId,
+    vimeoId,
+    isUpload,
+    playbackUrl: isUpload ? video.uploadedVideo : video.videoUrl || "",
+    /* Vimeo stills need an API call, so those fall back to the
+       admin's own thumbnail or the component's placeholder. */
+    posterUrl: video.thumbnail || (youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : "")
+  };
 };
 
 const mergeIntervals = (intervals) => {
@@ -690,6 +736,113 @@ app.put(
 );
 
 app.get("/api/auth/me", protect, (req, res) => res.json({ success: true, user: userPayload(req.user) }));
+/* ============================================================
+   Google sign-in
+   ------------------------------------------------------------
+   The browser gets an ID token from Google and posts it here. We
+   verify that token against our own client id — never trust the
+   email the browser claims — then sign in the matching account,
+   creating one on first visit.
+
+   Password sign-in is untouched: staff and anyone with a password
+   keep using /api/auth/login exactly as before.
+   ============================================================ */
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
+const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+
+/* Lets the sign-in page know whether to draw the Google button. */
+app.get("/api/auth/google-config", (req, res) =>
+  res.json({ success: true, enabled: Boolean(googleClient), clientId: googleClientId })
+);
+
+app.post(
+  "/api/auth/google",
+  asyncHandler(async (req, res) => {
+    if (!googleClient) {
+      return res.status(503).json({
+        success: false,
+        message: "Google sign-in is not configured on this server."
+      });
+    }
+
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ success: false, message: "Missing Google credential" });
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: googleClientId });
+      payload = ticket.getPayload();
+    } catch {
+      return res.status(401).json({ success: false, message: "Could not verify that Google sign-in. Please try again." });
+    }
+
+    if (!payload?.email || !payload.email_verified) {
+      return res.status(401).json({ success: false, message: "That Google account has no verified email address." });
+    }
+
+    const email = payload.email.toLowerCase().trim();
+
+    /* Match on the Google subject first, then fall back to the email so
+       an existing password account is linked rather than duplicated. */
+    let user = await User.findOne({ $or: [{ googleId: payload.sub }, { email }] });
+    const isNew = !user;
+
+    if (!user) {
+      user = new User({
+        name: payload.name || email.split("@")[0],
+        email,
+        role: "student",
+        status: "active",
+        emailVerified: true
+      });
+    }
+
+    user.googleId = payload.sub;
+    user.emailVerified = true;
+    if (!user.profileImage && payload.picture) user.profileImage = payload.picture;
+    if (user.status === "pending" || user.status === "inactive") user.status = "active";
+    user.lastActiveAt = new Date();
+
+    if (user.status === "blocked") {
+      return res.status(403).json({ success: false, message: "Account is blocked. Please contact admin." });
+    }
+
+    await user.save();
+
+    if (isNew) {
+      await createNotification({
+        audience: "admin",
+        type: "user_registered",
+        title: "New user registered",
+        message: `${user.name} signed up with Google.`,
+        link: "/admin/users"
+      });
+    }
+
+    /* Same session and audit trail as a password sign-in. */
+    const client = describeClient(req);
+    const session = await LoginSession.create({
+      user: user._id,
+      userName: user.name,
+      userRole: user.role,
+      ...client
+    }).catch(() => null);
+
+    if (isStaff(user)) {
+      await recordActivity({ ...req, user }, {
+        action: "login",
+        section: "sessions",
+        resource: "login-sessions",
+        resourceId: session ? String(session._id) : undefined,
+        label: `${user.name} signed in with Google`
+      });
+    }
+
+    res.json({ success: true, isNew, token: tokenFor(user), user: userPayload(user) });
+  })
+);
+
 app.post("/api/auth/logout", (req, res) => res.json({ success: true, message: "Logged out" }));
 app.put(
   "/api/auth/profile",
@@ -2273,12 +2426,38 @@ app.get("/api/blogs/:slug", asyncHandler(async (req, res) => {
   const relatedBlogs = await Blog.find({ _id: { $ne: blog._id }, category: blog.category, status: "published" }).limit(3).lean();
   res.json({ success: true, blog: { ...blog, relatedBlogs } });
 }));
-app.get("/api/video-blogs", asyncHandler((req, res) => list(req, res, VideoBlog, { status: "published", ...(req.query.homepage === "true" ? { showOnHomepage: true } : {}) }, { sort: { createdAt: -1 } })));
+app.get("/api/video-blogs", asyncHandler((req, res) => {
+  const filter = { status: "published" };
+  if (req.query.homepage === "true") filter.showOnHomepage = true;
+  if (req.query.category) filter.category = req.query.category;
+  if (req.query.search) {
+    const regex = new RegExp(req.query.search, "i");
+    filter.$or = [{ title: regex }, { shortDescription: regex }, { category: regex }, { speaker: regex }, { tags: regex }];
+  }
+  return list(req, res, VideoBlog, filter, {
+    sort: { featured: -1, sortOrder: 1, createdAt: -1 },
+    decorate: decorateVideoBlog
+  });
+}));
+/* Drives the category chips on the videos page. */
+app.get("/api/video-blogs-filters", asyncHandler(async (req, res) => {
+  const [categories, speakers] = await Promise.all([
+    VideoBlog.distinct("category", { status: "published", category: { $nin: [null, ""] } }),
+    VideoBlog.distinct("speaker", { status: "published", speaker: { $nin: [null, ""] } })
+  ]);
+  res.json({ success: true, categories: categories.sort(), speakers: speakers.sort() });
+}));
 app.get("/api/video-blogs/:slug", asyncHandler(async (req, res) => {
   const videoBlog = await VideoBlog.findOne({ slug: req.params.slug, status: "published" }).lean();
   if (!videoBlog) return res.status(404).json({ success: false, message: "Video blog not found" });
-  const relatedVideos = await VideoBlog.find({ _id: { $ne: videoBlog._id }, status: "published" }).limit(3).lean();
-  res.json({ success: true, videoBlog: { ...videoBlog, relatedVideos } });
+  const relatedVideos = await VideoBlog.find({ _id: { $ne: videoBlog._id }, status: "published" })
+    .sort({ featured: -1, sortOrder: 1, createdAt: -1 })
+    .limit(3)
+    .lean();
+  res.json({
+    success: true,
+    videoBlog: { ...decorateVideoBlog(videoBlog), relatedVideos: relatedVideos.map(decorateVideoBlog) }
+  });
 }));
 app.get("/api/gallery/images", asyncHandler((req, res) => list(req, res, ImageGallery, { status: "active", ...(req.query.highlight === "true" ? { showInMediaHighlight: true } : {}) })));
 app.get("/api/gallery/videos", asyncHandler((req, res) => list(req, res, VideoGallery, { status: "active", ...(req.query.highlight === "true" ? { showInMediaHighlight: true } : {}) })));
@@ -2734,7 +2913,7 @@ const fields = {
   lessons: ["title", "description"],
   preachers: ["name", "designation"],
   blogs: ["title", "category", "shortDescription"],
-  "video-blogs": ["title", "category", "shortDescription"],
+  "video-blogs": ["title", "category", "shortDescription", "speaker"],
   subscribers: ["email"],
   "contact-messages": ["name", "email", "subject", "message"],
   "course-requests": ["fullName", "email", "phone"],

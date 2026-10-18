@@ -55,34 +55,77 @@ const CornerOrnament = (props) => (
   </svg>
 );
 
-/* YouTube still as a fallback when a record has no thumbnail. */
-const posterFor = (video) => {
-  if (video?.thumbnail) return assetUrl(video.thumbnail);
+/* The API sends `posterUrl` already resolved — the admin's thumbnail
+   if there is one, otherwise the still from the video. The local
+   derivation remains for records that arrive without it. */
+export const posterFor = (video) => {
+  const fromApi = video?.posterUrl || video?.thumbnail;
+  if (fromApi) return fromApi.startsWith("http") ? fromApi : assetUrl(fromApi);
   const m = String(video?.videoUrl || "").match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
   );
   return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : "";
 };
 
+/* True when the record plays a file from our own server rather than
+   an embed, in which case it needs a <video> element, not an iframe. */
+export const isUploaded = (video) =>
+  Boolean(video?.isUpload || (video?.videoType === "upload" && video?.uploadedVideo));
+
+export const fileSrc = (video) => assetUrl(video?.playbackUrl || video?.uploadedVideo || "");
+
+/* ------------------------------------------------------------------
+   Poster
+   ------------------------------------------------------------------
+   Three cases, in order: the admin's own thumbnail, the still taken
+   from a YouTube link, and — for a file uploaded to us, which has no
+   still to fetch — a frame from the video itself. Loading only the
+   metadata and seeking half a second in makes the browser paint that
+   frame, so an uploaded video gets a thumbnail with no server work
+   and nothing for the admin to prepare.
+   ------------------------------------------------------------------ */
+
+export const VideoPoster = ({ video, className = "", alt = "" }) => {
+  const [failed, setFailed] = useState(false);
+  const poster = posterFor(video);
+
+  if (!poster && isUploaded(video)) {
+    return (
+      <video
+        src={`${fileSrc(video)}#t=0.5`}
+        preload="metadata"
+        muted
+        playsInline
+        tabIndex={-1}
+        aria-hidden="true"
+        className={className}
+      />
+    );
+  }
+
+  if (failed || !poster) return <MediaFallback />;
+
+  return (
+    <img
+      src={poster}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+};
+
 /* ------------------------------------------------------------------ */
 
 const VideoThumb = ({ video }) => {
-  const [failed, setFailed] = useState(false);
-  const src = posterFor(video);
-
   return (
     <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#1C1410]">
-      {failed || !src ? (
-        <MediaFallback />
-      ) : (
-        <img
-          src={src}
-          alt={video.title}
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.03]"
-        />
-      )}
+      <VideoPoster
+        video={video}
+        alt={video.title}
+        className="h-full w-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.03]"
+      />
 
       <div className="absolute inset-0 bg-black/15" />
 

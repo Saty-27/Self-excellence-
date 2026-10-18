@@ -707,9 +707,11 @@ export const Footer = () => {
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="Email address"
                   required
-                  className="h-11 min-w-0 flex-1 rounded-full border border-white/15 bg-white/[0.06] px-5 font-ui text-[14px] text-[#F5EFE6] outline-none transition-colors placeholder:text-[#8C8073] focus:border-primary"
+                  /* `flex-1` only once the form is a row — in the stacked
+                     layout it governs height and collapses the field. */
+                  className="h-12 w-full min-w-0 rounded-full border border-white/15 bg-white/[0.06] px-5 font-ui text-[16px] text-[#F5EFE6] outline-none transition-colors placeholder:text-[#8C8073] focus:border-primary xs:h-11 xs:flex-1 xs:text-[14px]"
                 />
-                <button className="h-11 shrink-0 rounded-full bg-primary px-6 font-ui text-[13.5px] font-semibold text-white transition-colors duration-300 hover:bg-primary-dark">
+                <button className="h-12 w-full shrink-0 rounded-full bg-primary px-6 font-ui text-[14px] font-semibold text-white transition-colors duration-300 hover:bg-primary-dark xs:h-11 xs:w-auto xs:text-[13.5px]">
                   Subscribe
                 </button>
               </form>

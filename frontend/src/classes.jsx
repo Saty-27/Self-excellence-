@@ -243,18 +243,29 @@ export const ClassDetailPage = ({ onRegister }) => {
         description={item.shortDescription || "A Sunday program with kirtan, class and prasadam at ISKCON Juhu."}
       />
 
-      {/* Hero */}
+      {/* Hero
+          The artwork for a class is often a portrait poster. Cropping one
+          into a wide banner throws most of it away, so the image is used
+          twice: blurred behind as atmosphere, and again at its own
+          proportions in a panel beside the heading, where the whole
+          poster stays readable. Landscape artwork sits in the same panel
+          perfectly well. */}
       <section className="relative overflow-hidden bg-heading">
         <div className="absolute inset-0" aria-hidden="true">
           {item.image ? (
-            <img src={assetUrl(item.image)} alt="" className="h-full w-full object-cover opacity-70" />
+            <img
+              src={assetUrl(item.image)}
+              alt=""
+              className="h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+            />
           ) : (
             <MediaFallback />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-heading/95 via-heading/55 to-heading/25" />
+          <div className="absolute inset-0 bg-gradient-to-t from-heading/95 via-heading/70 to-heading/50" />
         </div>
 
-        <div className={`${SHELL} relative py-16 lg:py-24`}>
+        <div className={`${SHELL} relative grid items-center gap-10 py-16 lg:grid-cols-[1fr_320px] lg:gap-14 lg:py-24`}>
+          <div className="min-w-0">
           <nav className="mb-5 font-ui text-[12.5px] text-white/70" aria-label="Breadcrumb">
             <Link to="/classes" className="transition-colors hover:text-white">Sunday Classes</Link>
             <span className="mx-2">/</span>
@@ -287,6 +298,20 @@ export const ClassDetailPage = ({ onRegister }) => {
               </a>
             )}
           </div>
+          </div>
+
+          {/* The poster at its own proportions — nothing cropped away. */}
+          {item.image && (
+            <div className="order-first w-full max-w-[320px] justify-self-center lg:order-none lg:justify-self-end">
+              <div className="overflow-hidden rounded-2xl bg-white/5 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.35)] ring-1 ring-white/15 backdrop-blur-sm">
+                <img
+                  src={assetUrl(item.image)}
+                  alt={item.title}
+                  className="max-h-[420px] w-full rounded-xl object-contain"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

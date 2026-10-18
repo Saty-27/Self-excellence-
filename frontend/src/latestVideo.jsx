@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { assetUrl } from "./api";
-import { VideoBlogTile } from "./videoBlogs";
+import { VideoBlogTile, VideoPoster, isUploaded, fileSrc, posterFor } from "./videoBlogs";
 
 /* ============================================================
    Latest Video — editorial media block
@@ -53,13 +52,6 @@ const embedUrl = (url = "") => {
   const vm = vimeoId(url);
   if (vm) return `https://player.vimeo.com/video/${vm}?autoplay=1`;
   return url;
-};
-
-/* Falls back to YouTube's own still when a record has no thumbnail. */
-const posterFor = (video) => {
-  if (video?.thumbnail) return assetUrl(video.thumbnail);
-  const yt = youtubeId(video?.videoUrl);
-  return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : "";
 };
 
 /* Only renders what the record actually carries. */
@@ -140,13 +132,28 @@ export const VideoModal = ({ video, onClose }) => {
           </svg>
         </button>
         <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-          <iframe
-            src={embedUrl(video.videoUrl)}
-            title={video.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="h-full w-full"
-          />
+          {isUploaded(video) ? (
+            /* An uploaded file plays natively; an iframe would only
+               offer to download it. */
+            <video
+              src={fileSrc(video)}
+              poster={posterFor(video) || undefined}
+              controls
+              autoPlay
+              playsInline
+              className="h-full w-full"
+            >
+              Your browser cannot play this video.
+            </video>
+          ) : (
+            <iframe
+              src={embedUrl(video.playbackUrl || video.videoUrl)}
+              title={video.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="h-full w-full"
+            />
+          )}
         </div>
       </div>
     </div>
@@ -156,7 +163,6 @@ export const VideoModal = ({ video, onClose }) => {
 /* ------------------------------------------------------------------ */
 
 export const FeaturedVideo = ({ video, onPlay }) => {
-  const poster = posterFor(video);
   const channel = channelOf(video);
   const duration = durationOf(video);
 
@@ -166,13 +172,10 @@ export const FeaturedVideo = ({ video, onPlay }) => {
   return (
     <div className="group relative w-full overflow-hidden rounded-[18px]">
       <div className="aspect-video w-full overflow-hidden bg-[#1C1410]">
-        {poster && (
-          <img
-            src={poster}
-            alt=""
-            className="h-full w-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.02]"
-          />
-        )}
+        <VideoPoster
+          video={video}
+          className="h-full w-full object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.02]"
+        />
       </div>
 
       {/* keeps the overlaid title and controls legible */}
@@ -220,7 +223,6 @@ export const FeaturedVideo = ({ video, onPlay }) => {
 /* ------------------------------------------------------------------ */
 
 export const VideoListItem = ({ video, onPlay, withDivider }) => {
-  const poster = posterFor(video);
   const channel = channelOf(video);
   const duration = durationOf(video);
 
@@ -239,14 +241,10 @@ export const VideoListItem = ({ video, onPlay, withDivider }) => {
         aria-label={`Play ${video.title}`}
         className="relative block aspect-video w-full overflow-hidden rounded-[10px] bg-[#1C1410]"
       >
-        {poster && (
-          <img
-            src={poster}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
-          />
-        )}
+        <VideoPoster
+          video={video}
+          className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+        />
         <span className="absolute inset-0 bg-black/15" />
         <span className="absolute bottom-1.5 right-1.5 grid h-6 w-6 place-items-center rounded-full bg-white/85 backdrop-blur-sm">
           <PlayGlyph className="ml-0.5 h-3 w-3" />

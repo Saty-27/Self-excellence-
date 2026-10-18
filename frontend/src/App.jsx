@@ -66,6 +66,7 @@ import { AdminClassesPage } from "./adminClasses";
 import { AdminAccessPage } from "./adminAccess";
 import { StudentTripsPage, StudentTripDetailPage } from "./myTrips";
 import { TripDetailRoute } from "./tripRoute";
+import { VideosPage } from "./videosPage";
 import { useAuth } from "./AuthContext";
 import { useEffect } from "react";
 import { apiFetch } from "./api";
@@ -191,7 +192,9 @@ const App = () => {
         <Route path="/learn/:courseSlug/:lessonSlug" element={<LearnPage />} />
         <Route path="/blogs" element={<BlogListPage />} />
         <Route path="/blogs/:slug" element={<BlogDetailPage />} />
-        <Route path="/video-blogs" element={<BlogListPage video />} />
+        <Route path="/video-blogs" element={<VideosPage />} />
+        {/* Kept so older links and the footer still resolve. */}
+        <Route path="/videos" element={<VideosPage />} />
         <Route path="/video-blogs/:slug" element={<BlogDetailPage video />} />
         <Route path="/visionaries" element={<VisionariesPage />} />
         <Route path="/visionaries/:slug" element={<VisionaryDetailPage />} />

@@ -73,6 +73,7 @@ const IMG = {
   class1: "/uploads/upcoming-classes/1783225094020-ssrr.jpg",
   class2: "/uploads/upcoming-classes/1783225204239-b71ac1f34f7fd12d6a95ffd66701548b.jpg",
   class3: "/uploads/upcoming-classes/1778939109159-group-32.png",
+  ekadashi: "/uploads/upcoming-classes/yogini-ekadashi-2026.png",
   prabhupada: "/uploads/about-sections/1783225751333-srila-prabhupada-103.jpg",
   prabhupada2: "/uploads/about-sections/1783225864079-sppic.jpg",
   vyasasana: "/uploads/about-sections/1783225944213-spvyasasana.jpeg",
@@ -257,7 +258,7 @@ const run = async () => {
     ["preachers", "Our Qualified Teachers", "Learn from senior devotees"],
     ["benefits", "Benefits of Self-Excellence Classes", "What students take away"],
     ["blogs", "Latest Blogs", "Reflections on spiritual learning"],
-    ["video_blogs", "Video Blogs", "Short messages and class highlights"],
+    ["video_blogs", "Latest Videos", "Classes, kirtans and short reflections from ISKCON Juhu."],
     ["media_highlight", "Photo & Video Gallery", "Moments from our classes and pilgrimages"],
     ["testimonials", "Student Reflections", "Real stories. Real transformation."],
     ["newsletter", "Stay Connected on Your Spiritual Journey",
@@ -766,7 +767,7 @@ const run = async () => {
       "A thoughtful discussion on deity worship and personal connection with Krishna."],
     ["Aakhir Kaun Hai Ye Jagannath?", IMG.class2, "HG Madhava Mohan Das", "ISKCON Juhu Temple Hall",
       "Discover the sweetness and history of Lord Jagannath in an engaging youth session."],
-    ["Yogini Ekadashi", IMG.class3, "HG Govind Priya Das", "ISKCON Juhu Seminar Room",
+    ["Yogini Ekadashi", IMG.ekadashi, "HG Govind Priya Das", "ISKCON Juhu Seminar Room",
       "Learn the story, practice, and inner meaning of Yogini Ekadashi."],
     ["The Art of Daily Sadhana", IMG.class1, "HG Krishna Chaitanya Das", "ISKCON Juhu Auditorium",
       "Building a practice that survives a working week, with time for questions."]
@@ -827,18 +828,33 @@ const run = async () => {
   })));
   log("blogs", blogSeed.length);
 
+  /* Distinct video ids on purpose: the poster is taken from the video
+     when no thumbnail is uploaded, so sharing one id would give every
+     card the same picture. */
+  /* Real recordings from the temple's own YouTube channels, so the
+     demo shows actual classes rather than stand-in clips. Durations are
+     left blank on purpose: the card simply omits one rather than state
+     a length nobody has checked. */
   const videoBlogSeed = [
-    ["Sunday Class Highlight", "Highlights", "HG Adbhuta Hari Prabhu", "12:40"],
-    ["How to Start Reading Gita", "Wisdom", "HG Radheshyam Das", "8:15"],
-    ["Festival Reflections", "Festivals", "HG Madhava Mohan Das", "15:02"],
-    ["Teacher Message for Students", "Youth", "HG Krishna Chaitanya Das", "6:48"]
+    ["Srimad Bhagavatam Class 11.6.11", "Scripture", "HG Anuttama Prabhu", "", "z-OyKOYK3-g",
+      "A verse-by-verse class on Srimad-Bhagavatam 11.6.11, recorded at ISKCON Juhu."],
+    ["Never Give Up", "Kirtan", "HG Shukadev Prabhu", "", "JgzVj92MRNg",
+      "Kirtan and a short message on persistence in practice, from the Self-Excellence youth programme."],
+    ["Playing for the Highest Goal", "Kirtan", "HG Akshobhya Das", "", "qyJtitTfCh8",
+      "On keeping the goal in view while living an ordinary working life."],
+    ["Inviting Krishna Into Our Hearts", "Festivals", "HG Akshobhya Das", "", "Y26OyUgf-0s",
+      "A Krishna Janmashtami kirtan and class from the Self-Excellence youth programme."],
+    ["The Meaning Behind Krishna\u2019s Appearance", "Festivals", "HG Satya Madhav Prabhu", "", "8F1vOD_9hrg",
+      "Why Krishna appears, and what Janmashtami is actually asking of us."]
   ];
-  await VideoBlog.insertMany(videoBlogSeed.map(([title, category, speaker, duration]) => ({
-    title, slug: slugify(title), videoUrl: "https://youtu.be/00s75c77QXA",
-    category, speaker, duration,
-    shortDescription: "Watch a short spiritual learning highlight from our community.",
-    description: "A short video from the Sunday programme at ISKCON Juhu.",
-    status: "published", showOnHomepage: true
+  await VideoBlog.insertMany(videoBlogSeed.map(([title, category, speaker, duration, videoId, shortDescription], i) => ({
+    title, slug: slugify(title),
+    videoType: "youtube", videoUrl: `https://youtu.be/${videoId}`,
+    category, speaker, duration, shortDescription,
+    description: `${shortDescription}\n\nRecorded at ISKCON Juhu and free to watch. If something here raises a question, the Sunday class always keeps time for questions.`,
+    tags: [category, "Self-Excellence"],
+    status: "published", showOnHomepage: true,
+    featured: i === 0, sortOrder: i + 1
   })));
   log("video blogs", videoBlogSeed.length);
 

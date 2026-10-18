@@ -54,7 +54,18 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     phone: String,
     mobile: String,
-    password: { type: String, required: true, minlength: 6, select: false },
+    /* Not required for an account created through Google — there is no
+       password to set in that flow. Password sign-in still works for
+       everyone who has one, staff and admin included. */
+    password: {
+      type: String,
+      required: function () { return !this.googleId; },
+      minlength: 6,
+      select: false
+    },
+    /* Google's stable subject id. Sparse so the unique index ignores
+       the many accounts that will never have one. */
+    googleId: { type: String, index: true, unique: true, sparse: true },
     /* Staff roles sit above teacher; main_admin remains the owner and
        is never restricted. Existing values are untouched. */
     role: {
@@ -105,6 +116,10 @@ userSchema.pre("save", async function hashPassword(next) {
   next();
 });
 userSchema.methods.matchPassword = function matchPassword(password) {
+  /* A Google-created account has no password stored. Answer "no match"
+     rather than letting bcrypt throw on an undefined hash, so password
+     sign-in simply fails for it like any wrong credential would. */
+  if (!password || !this.password) return Promise.resolve(false);
   return bcrypt.compare(password, this.password);
 };
 userSchema.set("toJSON", {
@@ -569,8 +584,14 @@ const videoBlogSchema = new Schema(
   {
     title: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
+    /* Left blank, the poster is taken from the video itself — the
+       YouTube or Vimeo still. Setting it overrides that. */
     thumbnail: String,
+    /* "youtube" plays videoUrl in an embed (YouTube or Vimeo);
+       "upload" plays uploadedVideo from our own server. */
+    videoType: { type: String, enum: ["youtube", "upload"], default: "youtube" },
     videoUrl: String,
+    uploadedVideo: String,
     duration: String,
     speaker: String,
     shortDescription: String,
@@ -579,10 +600,14 @@ const videoBlogSchema = new Schema(
     tags: [String],
     status: publishStatus,
     showOnHomepage: { type: Boolean, default: false },
+    /* The featured one leads the homepage band and the videos page. */
+    featured: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0 },
     ...seo
   },
   { timestamps: true }
 );
+videoBlogSchema.index({ featured: -1, sortOrder: 1, createdAt: -1 });
 
 const imageGallerySchema = new Schema(
   {

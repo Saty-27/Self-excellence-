@@ -68,6 +68,7 @@ import { FeaturedTripsSection } from "./featuredTrips";
 import { CoursesSection } from "./courses";
 import { WhyJoinSection } from "./whyJoin";
 import { LatestVideoSection } from "./latestVideo";
+import { GoogleSignIn } from "./googleSignIn";
 import { LatestBlogsSection } from "./latestBlogs";
 import { MediaReflectionsSection } from "./mediaReflections";
 import { TeachersSection } from "./teachers";
@@ -142,6 +143,16 @@ const homeFor = (role) =>
 
 const sectionMap = (sections) => Object.fromEntries(sections.map((section) => [section.sectionKey, section]));
 const active = (section) => section && section.status !== "inactive";
+
+/* Section headings are two-tone: the last word carries the accent
+   colour. Splitting an admin-supplied title the same way keeps that
+   look whatever wording the CMS holds. */
+const splitHeading = (title, lead, accent) => {
+  if (!title) return [lead, accent];
+  const words = title.trim().split(/\s+/);
+  if (words.length < 2) return ["", title.trim()];
+  return [words.slice(0, -1).join(" "), words[words.length - 1]];
+};
 
 export const HomePage = () => {
   const { user } = useAuth();
@@ -286,7 +297,16 @@ export const HomePage = () => {
       {/* The old Video Blogs band was merged into this one, so it now
           answers to that section's CMS toggle. */}
       {active(map.video_blogs) && (
-        <LatestVideoSection videos={videoBlogs} />
+        <LatestVideoSection
+          videos={videoBlogs}
+          /* Heading comes from Admin -> Home Sections, falling back to
+             the built-in wording when the CMS leaves it blank. */
+          titleLead={splitHeading(map.video_blogs?.sectionTitle, "Latest", "Videos")[0]}
+          titleAccent={splitHeading(map.video_blogs?.sectionTitle, "Latest", "Videos")[1]}
+          subtitle={map.video_blogs?.sectionSubtitle || undefined}
+          viewAllLabel={map.video_blogs?.buttonText || undefined}
+          viewAllLink={map.video_blogs?.buttonLink || undefined}
+        />
       )}
 
       {active(map.preachers) && (
@@ -440,11 +460,15 @@ export const CoursesPage = () => {
       <SEO title="Courses - ISKCON Juhu Self-Excellence" />
       <PageBanner title="Explore Courses" subtitle="Dynamic spiritual learning courses designed by experienced devotees." image={images.books} />
       <section className="section-pad bg-soft"><div className="container-pad">
-        <div className="mb-8 grid gap-3 rounded-2xl bg-white p-4 shadow-sm md:grid-cols-4">
-          <input value={params.get("search") || ""} onChange={(event) => update("search", event.target.value)} placeholder="Search courses" className="rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary" />
-          <select value={params.get("category") || ""} onChange={(event) => update("category", event.target.value)} className="rounded-xl border border-black/10 px-4 py-3 text-sm outline-none"><option value="">All categories</option><option>Scripture</option><option>Self-Excellence</option></select>
-          <select value={params.get("level") || ""} onChange={(event) => update("level", event.target.value)} className="rounded-xl border border-black/10 px-4 py-3 text-sm outline-none"><option value="">All levels</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
-          <button className="rounded-xl bg-primary px-4 py-3 text-sm font-black text-white"><Search className="mr-2 inline" size={16} />Search</button>
+        {/* Two columns on a phone — search and the button span both, the
+            two selects share a row — then a single row from md up. Every
+            control is the same explicit height so they line up rather
+            than each sizing itself from its own padding. */}
+        <div className="mb-8 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 shadow-sm md:grid-cols-4">
+          <input value={params.get("search") || ""} onChange={(event) => update("search", event.target.value)} placeholder="Search courses" className="col-span-2 h-12 w-full min-w-0 rounded-xl border border-black/10 px-4 text-[16px] outline-none focus:border-primary md:col-span-1 md:text-sm" />
+          <select value={params.get("category") || ""} onChange={(event) => update("category", event.target.value)} className="h-12 w-full min-w-0 truncate rounded-xl border border-black/10 bg-white pl-4 pr-9 text-[15px] outline-none focus:border-primary md:text-sm"><option value="">All categories</option><option>Scripture</option><option>Self-Excellence</option></select>
+          <select value={params.get("level") || ""} onChange={(event) => update("level", event.target.value)} className="h-12 w-full min-w-0 truncate rounded-xl border border-black/10 bg-white pl-4 pr-9 text-[15px] outline-none focus:border-primary md:text-sm"><option value="">All levels</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+          <button className="col-span-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary-dark md:col-span-1"><Search size={16} />Search</button>
         </div>
         {loading ? (
           <div className="py-20 text-center font-bold text-muted animate-pulse">Loading courses...</div>
@@ -1896,7 +1920,7 @@ export const BlogDetailPage = ({ video = false }) => {
   return (
     <>
       <SEO title={item.seoTitle || item.title} description={item.seoDescription || item.shortDescription} />
-      <PageBanner title={item.title} subtitle={item.shortDescription} image={video ? (item.thumbnail || images.class) : (item.image || images.books)} />
+      <PageBanner title={item.title} subtitle={item.shortDescription} image={video ? (item.posterUrl || item.thumbnail || images.class) : (item.image || images.books)} />
       
       <section className="bg-[#FFFDF8]">
         <div className="mx-auto w-full max-w-4xl px-5 py-14 sm:px-8 lg:py-[72px]">
@@ -1913,7 +1937,7 @@ export const BlogDetailPage = ({ video = false }) => {
           {/* Media / Video Player Wrapper */}
           {video ? (
             <div className="mb-8 overflow-hidden rounded-2xl bg-black shadow-premium">
-              <VideoPlayer url={item.videoUrl} title={item.title} />
+              <VideoPlayer url={item.videoUrl} uploadedVideo={item.uploadedVideo} videoType={item.videoType} title={item.title} />
             </div>
           ) : (
             <img
@@ -2088,7 +2112,9 @@ export const SitemapPage = () => {
 export const AuthPage = ({ register = false, admin = false, teacher = false }) => {
   const { login, register: registerUser } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: admin ? "admin@iskconlms.com" : teacher ? "teacher@iskconlms.com" : "", phone: "", role: "student", password: admin ? "admin123" : teacher ? "Teacher@123" : "", confirmPassword: "" });
+  /* No prefilled credentials: the old demo values stopped matching any
+     real account and made the form look broken on first use. */
+  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "student", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -2166,6 +2192,17 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
             {register ? "Register" : admin ? "Open Admin Panel" : teacher ? "Open Teacher Panel" : "Login"}
           </button>
           {error && <p className="mt-4 text-sm font-bold text-primary">{error}</p>}
+
+          {/* Students sign in with Google or a password; the admin and
+              teacher panels stay password-only. Renders nothing until a
+              client id is configured on the server. */}
+          {!admin && !teacher && (
+            <GoogleSignIn
+              label={register ? "signup_with" : "signin_with"}
+              onSignedIn={(user) => navigate(homeFor(user.role))}
+            />
+          )}
+
           <div className="mt-5 flex flex-wrap justify-between gap-3 text-sm">
             <Link className="font-black text-primary" to="/">Back to Website</Link>
             {!admin && !teacher && (
@@ -5453,7 +5490,7 @@ const adminConfig = {
   preachers: { title: "Preachers", fields: ["name", "slug", "image", "designation", "shortBio", "fullBio", "experience", "specialization", "email", "phone", "status", "showOnHomepage", "sortOrder"] },
   visionaries: { title: "Visionaries", fields: ["name", "slug", "type", "image", "designation", "shortBio", "fullBio", "experience", "specialization", "email", "phone", "status", "showOnHomepage", "sortOrder"] },
   blogs: { title: "Blogs", fields: ["title", "slug", "image", "shortDescription", "content", "listItems", "category", "tags", "status", "featured", "showOnHomepage", "seoTitle", "seoDescription", "seoKeywords"] },
-  "video-blogs": { title: "Video Blogs", fields: ["title", "slug", "thumbnail", "videoUrl", "duration", "speaker", "shortDescription", "description", "category", "tags", "status", "showOnHomepage", "seoTitle", "seoDescription"] },
+  "video-blogs": { title: "Video Blogs", fields: ["title", "slug", "videoType", "videoUrl", "uploadedVideo", "thumbnail", "duration", "speaker", "shortDescription", "description", "category", "tags", "status", "featured", "showOnHomepage", "sortOrder", "seoTitle", "seoDescription"] },
   "media/images": { title: "Image Gallery", fields: ["title", "image", "category", "description", "status", "showInMediaHighlight", "sortOrder"] },
   "media/videos": { title: "Video Gallery", fields: ["title", "thumbnail", "videoUrl", "description", "category", "status", "showInMediaHighlight", "sortOrder"] },
   subscribers: { title: "Subscribers", fields: ["email", "status"] },
@@ -6286,7 +6323,11 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
 
   const handleFile = async (field, file) => {
     if (!file) return;
-    const uploaded = await uploadFile(file, resource.replace("/", "-"));
+    const base = resource.replace("/", "-");
+    /* Video files go to their own folder, which is the one the upload
+       rules allow video types in; images stay in the resource folder. */
+    const folder = field === "uploadedVideo" ? `${base}/videos` : base;
+    const uploaded = await uploadFile(file, folder);
     setForm((old) => ({ ...old, [field]: uploaded.url }));
   };
 
@@ -6301,6 +6342,11 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
             const showField = !["verificationInstructions", "requiredDocumentName", "allowedFileTypes", "maxFileSize"].includes(field) || form.enrollmentType === "verification";
             if (!showField) return null;
 
+            /* Only one of the two video sources is relevant at a time. */
+            const videoMode = form.videoType || "youtube";
+            if (field === "videoUrl" && resource === "video-blogs" && videoMode === "upload") return null;
+            if (field === "uploadedVideo" && videoMode !== "upload") return null;
+
             const type = fieldType(field);
             const label = field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
             if (field === "status") return <select key={field} value={form[field] || "active"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3"><option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option><option value="pending">Pending</option><option value="published">Published</option><option value="draft">Draft</option></select>;
@@ -6311,7 +6357,9 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
             if (field === "enrollmentType") return <select key={field} value={form[field] || "free"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3"><option value="free">Free Course</option><option value="verification">Document Verification Required</option><option value="paid">Paid Course (Future Ready)</option></select>;
             if (field === "type" && resource === "booking-taxes") return <label key={field} className="grid gap-1 text-xs font-black uppercase tracking-wide text-muted">Charge type<select value={form[field] || "percent"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-normal normal-case text-ink"><option value="percent">Percentage of subtotal (%)</option><option value="flat">Flat amount (₹)</option></select></label>;
             if (field === "appliesTo") return <label key={field} className="grid gap-1 text-xs font-black uppercase tracking-wide text-muted">Flat amount applies<select value={form[field] || "booking"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-normal normal-case text-ink"><option value="booking">Once per booking</option><option value="person">Per traveller</option></select></label>;
-            if (field === "videoType") return <select key={field} value={form[field] || "youtube"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3"><option>youtube</option><option>upload</option></select>;
+            if (field === "videoType") return <label key={field} className="grid gap-1 text-xs font-black uppercase tracking-wide text-muted">Video source<select value={form[field] || "youtube"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-normal normal-case text-ink"><option value="youtube">Paste a YouTube or Vimeo link</option><option value="upload">Upload a video file</option></select></label>;
+            /* The poster is optional: left blank it is taken from the video. */
+            if (field === "thumbnail" && resource === "video-blogs") return <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">Thumbnail <span className="font-normal normal-case text-muted">— optional. Leave blank and the still is taken from the video itself.</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFile(field, e.target.files?.[0])} /><input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="Auto from video" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" />{form.thumbnail ? <button type="button" onClick={() => setForm({ ...form, thumbnail: "" })} className="justify-self-start rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold">Clear and use the video still</button> : null}</label>;
             if (type === "checkbox") return <label key={field} className="flex items-center gap-3 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold"><input type="checkbox" checked={Boolean(form[field])} onChange={(e) => setForm({ ...form, [field]: e.target.checked })} />{label}</label>;
             if (type === "file") return <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">{label}<input type="file" onChange={(e) => handleFile(field, e.target.files?.[0])} /><input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="URL" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" /></label>;
             if (type === "textarea") return <textarea key={field} value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder={label} rows="4" className="rounded-xl border border-black/10 px-4 py-3 md:col-span-2" />;
