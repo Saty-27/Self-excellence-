@@ -75,7 +75,6 @@ const IMG = {
   adbhuta: "/uploads/visionaries/adbhuta-hari-prabhu.webp",
   class1: "/uploads/upcoming-classes/1783225094020-ssrr.jpg",
   class2: "/uploads/upcoming-classes/1783225204239-b71ac1f34f7fd12d6a95ffd66701548b.jpg",
-  class3: "/uploads/upcoming-classes/1778939109159-group-32.png",
   ekadashi: "/uploads/upcoming-classes/yogini-ekadashi-2026.png",
   prabhupada: "/uploads/about-sections/1783225751333-srila-prabhupada-103.jpg",
   prabhupada2: "/uploads/about-sections/1783225864079-sppic.jpg",
@@ -807,7 +806,7 @@ const run = async () => {
       notes: "Please arrive ten minutes early so you can settle before kirtan begins.\n\nModest dress is appreciated — shoulders and knees covered. Footwear is left at the entrance.\n\nThe hall is on the ground floor and is step-free. Tell us when you register if you need a chair rather than floor seating.\n\nChildren are welcome. There is space at the back for families who may need to step out.",
       registrationNote: "Registering helps us cook the right amount of prasadam. Walk-ins are still welcome.",
       seats: 120,
-      gallery: [IMG.class1, IMG.class2, IMG.class3].map((imageUrl, n) => ({
+      gallery: [IMG.class1, IMG.class2].map((imageUrl, n) => ({
         imageUrl, altText: `Sunday programme photograph ${n + 1}`, sortOrder: n + 1
       })),
       buttonText: "Register Now", status: "active", showOnHomepage: true, sortOrder: i + 1
