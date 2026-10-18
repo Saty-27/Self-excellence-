@@ -232,21 +232,21 @@ export const TripsPage = () => {
           </form>
 
           <select value={params.get("destination") || ""} onChange={(e) => set("destination", e.target.value)} aria-label="Destination" className={control}>
-            <option value="">All destinations</option>
+            <option value="">Destination</option>
             {filters.destinations.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
 
           <select value={params.get("tripType") || ""} onChange={(e) => set("tripType", e.target.value)} aria-label="Trip type" className={control}>
-            <option value="">All types</option>
+            <option value="">Trip type</option>
             {filters.tripTypes.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
 
           <select value={params.get("availability") || ""} onChange={(e) => set("availability", e.target.value)} aria-label="Availability" className={control}>
-            <option value="">Any availability</option>
+            <option value="">Availability</option>
             <option value="available">Seats available</option>
           </select>
 

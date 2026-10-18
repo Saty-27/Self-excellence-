@@ -243,3 +243,20 @@
   .reveal, .reveal.is-in { opacity: 1 !important; animation: none !important; transform: none !important; }
   .hero-drift { animation: none !important; }
 }
+
+/* iOS Safari zooms the whole page when a form field smaller than 16px
+   receives focus, and does not zoom back out. Sizes are set per field
+   across the site for density on desktop, so rather than chase each one
+   — and have the next new field reintroduce it — enforce the minimum on
+   small screens only. !important is needed because Tailwind's text-[…]
+   utilities are class selectors and would otherwise win.
+
+   Checkboxes and radios are excluded: they have no text, and a font-size
+   on them shifts their layout. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
