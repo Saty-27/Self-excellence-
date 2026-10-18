@@ -70,6 +70,8 @@ const IMG = {
   teacher4: "/uploads/visionaries/1782483929816-kcd.jpg",
   teacher5: "/uploads/visionaries/1782485331212-kcd_katha.jpg",
   teacher6: "/uploads/visionaries/1783174302832-rvp.jpg",
+  hayagriva: "/uploads/visionaries/hayagriva-charan-das.png",
+  akshobhya: "/uploads/visionaries/akshobhya-das.png",
   class1: "/uploads/upcoming-classes/1783225094020-ssrr.jpg",
   class2: "/uploads/upcoming-classes/1783225204239-b71ac1f34f7fd12d6a95ffd66701548b.jpg",
   class3: "/uploads/upcoming-classes/1778939109159-group-32.png",
@@ -336,18 +338,10 @@ const run = async () => {
 
   /* ---------- visionaries ---------- */
   const preachers = await Preacher.insertMany([
-    ["HG Radheshyam Das", "Senior Gita Mentor", IMG.teacher1, "Founder", "28 years",
-      "Has taught the Bhagavad-gita to students in Mumbai for nearly three decades."],
-    ["HG Madhava Mohan Das", "Bhagavatam Teacher", IMG.teacher2, "Team Member", "16 years",
-      "Leads the Srimad-Bhagavatam study circle and the Thursday morning class."],
-    ["HG Krishna Chaitanya Das", "Youth Preacher", IMG.teacher3, "Team Member", "11 years",
-      "Works with college students and leads the youth retreats to Mayapur."],
-    ["HG Govind Priya Das", "Life Coach", IMG.teacher4, "Team Member", "9 years",
-      "Focuses on applying devotional principles to study, work and family life."],
-    ["HG Shyam Sundar Das", "Kirtan Leader", IMG.teacher5, "Team Member", "14 years",
-      "Leads kirtan at the Sunday programme and trains new singers."],
-    ["HG Nitai Gaura Das", "Temple Coordinator", IMG.teacher6, "Director", "21 years",
-      "Coordinates the Sunday programme, pilgrimages and devotee care."]
+    ["HG Akshobhya Das", "Kirtan & Youth Speaker", IMG.akshobhya, "Team Member", "",
+      "Speaks at the Self-Excellence kirtan programmes at ISKCON Juhu."],
+    ["HG Hayagriva Charan Das", "Katha Speaker", IMG.hayagriva, "Team Member", "",
+      "Speaks the Krishna Janmashtami katha series in Hindi at ISKCON Juhu."]
   ].map(([name, designation, image, type, experience, shortBio], i) => ({
     name, slug: slugify(name), designation, image, type, experience, shortBio,
     fullBio: `${shortBio} ${name} is available to students through the doubt box and the weekly support sessions.`,

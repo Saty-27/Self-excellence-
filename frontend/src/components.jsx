@@ -901,7 +901,9 @@ export const VisionaryCard = ({ visionary }) => (
         <img
           src={assetUrl(visionary.image)}
           alt={visionary.name}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          /* Anchored to the top: these are portraits, and centring a
+             tall source in a 4:3 frame cuts the face off. */
+          className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"
         />
         <span className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider text-white shadow-md ${
           visionary.type === "Founder" ? "bg-primary" : "bg-ink"
@@ -914,9 +916,13 @@ export const VisionaryCard = ({ visionary }) => (
           <h3 className="text-xl font-black text-ink group-hover:text-primary transition duration-200">
             {visionary.name}
           </h3>
-          <span className="shrink-0 text-xs font-black uppercase tracking-wide text-primary/80 bg-primary/5 px-2 py-0.5 rounded">
-            {visionary.experience || "Devotee"}
-          </span>
+          {/* Omitted entirely when unknown — a placeholder word beside
+              cards reading "14 YEARS" just looks like missing data. */}
+          {visionary.experience && (
+            <span className="shrink-0 text-xs font-black uppercase tracking-wide text-primary/80 bg-primary/5 px-2 py-0.5 rounded">
+              {visionary.experience}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-sm font-bold text-muted">{visionary.designation}</p>
         <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted font-medium">

@@ -2049,9 +2049,11 @@ export const VisionaryDetailPage = () => {
               }`}>
                 {item.type || "Team Member"}
               </span>
-              <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-                {item.experience || "Devotee"} experience
-              </span>
+              {item.experience && (
+                <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
+                  {item.experience} experience
+                </span>
+              )}
             </div>
             <div className="prose mt-6 max-w-none">
               <p>{item.fullBio}</p>
