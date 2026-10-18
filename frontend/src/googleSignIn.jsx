@@ -101,7 +101,7 @@ export const GoogleSignIn = ({ onSignedIn, label = "signin_with" }) => {
       {error && <p className="mt-3 text-center font-ui text-[13px] font-semibold text-primary">{error}</p>}
 
       <p className="mt-4 text-center font-ui text-[12.5px] leading-[1.5] text-muted">
-        New here? Signing in with Google creates your account automatically.
+        Signing in with Google creates your account automatically.
       </p>
     </div>
   );
