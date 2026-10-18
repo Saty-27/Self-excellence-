@@ -89,6 +89,23 @@ const IMG = {
   skyline: "/uploads/trips/temple-skyline.webp"
 };
 
+/* Real recordings from the temple's channels, used as the lesson videos:
+   id, title, slug and speaker. Three different ones per course, cycling
+   through the list. The two Hindi titles carry an explicit slug, since
+   slugify() strips Devanagari to nothing. Durations stay blank rather
+   than invented. */
+const LESSON_VIDEOS = [
+  ["Mo-cAoCmwXA", "The Life We\u2019ve Been Searching For", "the-life-weve-been-searching-for", "HG Narada Rishi Das"],
+  ["vudyS5nKA3Y", "The Appearance of Lord Krishna", "the-appearance-of-lord-krishna", "HG Satya Govinda Prabhu"],
+  ["UEF-PpQETos", "How to Please Srimati Radharani", "how-to-please-srimati-radharani", "HG Adbhuta Hari Das"],
+  ["bBtdbTXHtnk", "Significance of Ganesh Chaturthi", "significance-of-ganesh-chaturthi", "HG Adbhuta Hari Das"],
+  ["EvZchtCHnQk", "The Service That Krishna Sees", "the-service-that-krishna-sees", "ISKCON Juhu drama team"],
+  ["AzuOcbqUQR4", "Inviting Krishna Into Our Hearts", "inviting-krishna-into-our-hearts", "HG Adbhuta Hari Das"],
+  ["g5S9iEwxfck", "\u0935\u093f\u0930\u093e\u091f \u0930\u0942\u092a \u0915\u093e \u0926\u0930\u094d\u0936\u0928", "virat-rup-ka-darshan", "HG Hayagriva Charan Das"],
+  ["mA-VE_gaQms", "\u092a\u0942\u0924\u0928\u093e \u0935\u0927", "putana-vadha", "HG Hayagriva Charan Das"],
+  ["qnSlh7Fpoxs", "Breaking Free", "breaking-free", "Mr. Ajit Haldankar"]
+];
+
 const log = (label, n) => console.log(`  ${String(n).padStart(3)} ${label}`);
 
 /* ============================================================ */
@@ -391,17 +408,14 @@ const run = async () => {
     });
     courses.push(course);
 
-    const lessonTitles = [
-      "Introduction and how to study this course",
-      "The core teaching, read slowly",
-      "Applying it this week"
-    ];
-    for (let L = 0; L < lessonTitles.length; L += 1) {
+    for (let L = 0; L < 3; L += 1) {
+      const [videoId, lessonTitle, lessonSlug, speaker] =
+        LESSON_VIDEOS[(i * 3 + L) % LESSON_VIDEOS.length];
       await Lesson.create({
-        course: course._id, title: lessonTitles[L], slug: slugify(`${title}-${lessonTitles[L]}`),
-        description: `Session ${L + 1} of ${title}.`,
-        videoType: "youtube", youtubeUrl: "https://youtu.be/00s75c77QXA",
-        thumbnail, duration: `${18 + L * 6} min`, order: L + 1, sortOrder: L + 1,
+        course: course._id, title: lessonTitle, slug: lessonSlug,
+        description: `Recorded at ISKCON Juhu. Speaker: ${speaker}.`,
+        videoType: "youtube", youtubeUrl: `https://youtu.be/${videoId}`,
+        thumbnail: "", duration: "", order: L + 1, sortOrder: L + 1,
         isPreview: L === 0, status: "active", publishStatus: "published",
         commentsEnabled: true, notesEnabled: true, createdBy: admin._id
       });
