@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import {
   Book,
   BookOrder,
@@ -17,6 +18,14 @@ import {
   sanitizeCsvCell
 } from "./booksService.js";
 import { isBooksEnabled } from "./booksConfig.js";
+
+const bookOrderLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: "Order rate limit reached. Please wait a minute." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 export const booksRouter = express.Router();
 
@@ -203,7 +212,7 @@ export function attachProtectedBookRoutes(app, protectMiddleware) {
   /**
    * POST /api/book-orders — create an order (BUY or DISTRIBUTE)
    */
-  app.post("/api/book-orders", protectMiddleware, async (req, res) => {
+  app.post("/api/book-orders", protectMiddleware, bookOrderLimiter, async (req, res) => {
     try {
       if (!isBooksEnabled()) return res.status(404).json({ success: false, message: "Books module disabled" });
 
@@ -310,7 +319,7 @@ export function attachProtectedBookRoutes(app, protectMiddleware) {
   /**
    * POST /api/book-orders/:id/payment — submit payment proof (screenshot & reference)
    */
-  app.post("/api/book-orders/:id/payment", protectMiddleware, async (req, res) => {
+  app.post("/api/book-orders/:id/payment", protectMiddleware, bookOrderLimiter, async (req, res) => {
     try {
       if (!isBooksEnabled()) return res.status(404).json({ success: false, message: "Books module disabled" });
 

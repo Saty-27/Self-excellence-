@@ -393,9 +393,54 @@ app.use(
     credentials: true
   })
 );
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 10000, standardHeaders: true, legacyHeaders: false }));
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+/* NoSQL Query Injection Guard: Strips operator keys starting with $ from user input */
+const sanitizeNoSql = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith("$") || (key.includes(".") && !key.includes("@"))) {
+      delete obj[key];
+    } else if (typeof obj[key] === "object") {
+      sanitizeNoSql(obj[key]);
+    }
+  }
+  return obj;
+};
+app.use((req, res, next) => {
+  if (req.body) sanitizeNoSql(req.body);
+  if (req.query) sanitizeNoSql(req.query);
+  if (req.params) sanitizeNoSql(req.params);
+  next();
+});
+
+/* Layered Rate Limiters for 1GB VPS Protection */
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 2000, standardHeaders: true, legacyHeaders: false }));
+
+export const authLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: "Too many login/registration attempts. Please wait 5 minutes before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+export const uploadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: "Upload rate limit reached. Please wait a few minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+export const orderLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: "Order limit reached. Please wait a moment." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const uploadRoot = path.resolve(__dirname, "../uploads");
 const cleanUploadFolder = (value = "general") =>
@@ -429,7 +474,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 250 * 1024 * 1024 },
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30 MB safe ceiling for 1 GB VPS
   fileFilter: (req, file, cb) => {
     const folder = cleanUploadFolder(req.query.folder);
     const ext = path.extname(file.originalname).toLowerCase();
@@ -563,10 +608,23 @@ const getOrCreateChatRoom = async (course) =>
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
 
-app.get("/api/health", (req, res) => res.json({ success: true, message: "ISKCON LMS API is running" }));
+app.get("/api/health", (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    status: "ok",
+    uptimeSeconds: Math.floor(process.uptime()),
+    memoryMb: {
+      rss: Math.round(mem.rss / 1024 / 1024),
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+    },
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
+});
 
 app.post(
   "/api/auth/register",
+  authLimiter,
   asyncHandler(async (req, res) => {
     let { name, email, phone, mobile, password, confirmPassword, role = "student" } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, message: "Name and email are required" });
@@ -642,6 +700,7 @@ app.post(
 
 app.post(
   "/api/auth/login",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const email = req.body.email?.toLowerCase()?.trim();
     if (!email) {
@@ -920,6 +979,7 @@ app.put(
 app.post(
   "/api/upload",
   protect,
+  uploadLimiter,
   upload.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -2748,7 +2808,7 @@ app.use("/api", booksRouter);
 attachProtectedBookRoutes(app, protect);
 attachAdminBookRoutes(app, adminOnly);
 
-app.post("/api/admin/upload", ...adminOnly, upload.single("file"), asyncHandler(async (req, res) => {
+app.post("/api/admin/upload", ...adminOnly, uploadLimiter, upload.single("file"), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
   const file = { url: `/uploads/${req.file.path.split("/uploads/")[1]}`, filename: req.file.filename };
   await FileUpload.create({ user: req.user._id, ...file, folder: cleanUploadFolder(req.query.folder), mimeType: req.file.mimetype, size: req.file.size }).catch(() => null);
@@ -5693,7 +5753,12 @@ const runMigration = async () => {
 };
 
 mongoose
-  .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms", { serverSelectionTimeoutMS: 5000 })
+  .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms", {
+    serverSelectionTimeoutMS: 5000,
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    socketTimeoutMS: 45000
+  })
   .then(async () => {
     await runMigration();
     server.listen(port, () => console.log(`API listening on http://localhost:${port}`));
