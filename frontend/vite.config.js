@@ -5,5 +5,19 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173
+  },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-ui": ["lucide-react"],
+          "vendor-charts": ["recharts"],
+          "vendor-quill": ["react-quill"],
+          "vendor-socket": ["socket.io-client"]
+        }
+      }
+    }
   }
 });
