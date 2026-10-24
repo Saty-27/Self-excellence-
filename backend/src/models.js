@@ -59,7 +59,9 @@ const userSchema = new Schema(
        everyone who has one, staff and admin included. */
     password: {
       type: String,
-      required: function () { return !this.googleId; },
+      required: function () {
+        return !this.googleId && ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(this.role);
+      },
       minlength: 6,
       select: false
     },

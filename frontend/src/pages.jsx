@@ -2117,15 +2117,27 @@ export const SitemapPage = () => {
 export const AuthPage = ({ register = false, admin = false, teacher = false }) => {
   const { login, register: registerUser } = useAuth();
   const navigate = useNavigate();
-  /* No prefilled credentials: the old demo values stopped matching any
-     real account and made the form look broken on first use. */
-  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "student", password: "", confirmPassword: "" });
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialEmail = searchParams.get("email") || "";
+  const redirectUrl = searchParams.get("redirect") || "";
+
+  const [form, setForm] = useState({ name: "", email: initialEmail, phone: "", role: "student", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  useEffect(() => {
+    if (initialEmail && !form.email) {
+      setForm((prev) => ({ ...prev, email: initialEmail }));
+    }
+  }, [initialEmail]);
+
   const submit = async (event) => {
     event.preventDefault();
+    setLoading(true);
+    setError("");
     try {
       if (register) {
         const data = await registerUser(form);
@@ -2134,13 +2146,20 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
           return;
         }
         const user = data.user;
-        navigate(homeFor(user.role));
+        navigate(redirectUrl || homeFor(user.role));
         return;
       }
-      const user = await login(form.email, form.password);
-      navigate(homeFor(user.role));
+      const passwordToSend = (admin || teacher) ? form.password : "";
+      const user = await login(form.email, passwordToSend);
+      navigate(redirectUrl || homeFor(user.role));
     } catch (err) {
+      if (!admin && !teacher && (err.notFound || err.status === 404 || err.message?.toLowerCase().includes("not registered") || err.message?.toLowerCase().includes("not found"))) {
+        navigate(`/register?email=${encodeURIComponent(form.email)}`);
+        return;
+      }
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -2177,28 +2196,30 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
             )}
             <input value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); setError(""); }} required type="email" autoComplete="email" placeholder="Email" className="h-12 rounded-xl border border-black/10 px-4 text-[16px] outline-none focus:border-primary" />
             
-            <div className="relative flex items-center">
-              <input value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setError(""); }} required type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Password" className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 text-muted hover:text-primary transition" aria-label={showPassword ? "Hide password" : "Show password"}>
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-
-            {register && (
+            {(admin || teacher || register) && (
               <div className="relative flex items-center">
-                <input value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required type={showConfirmPassword ? "text" : "password"} placeholder="Confirm password" className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
+                <input value={form.password} onChange={(e) => { setForm({ ...form, password: e.target.value }); setError(""); }} required={admin || teacher} type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder={register ? "Password (optional)" : "Password"} className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 text-muted hover:text-primary transition" aria-label={showPassword ? "Hide password" : "Show password"}>
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            )}
+
+            {register && form.password && (
+              <div className="relative flex items-center">
+                <input value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required={Boolean(form.password)} type={showConfirmPassword ? "text" : "password"} placeholder="Confirm password" className="h-12 w-full rounded-xl border border-black/10 pl-4 pr-12 text-[16px] outline-none focus:border-primary" />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 text-muted hover:text-primary transition" aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             )}
           </div>
-          <button className="mt-6 h-12 w-full rounded-full bg-primary px-6 text-sm font-black text-white transition-colors hover:bg-primary-dark">
-            {register ? "Register" : admin ? "Open Admin Panel" : teacher ? "Open Teacher Panel" : "Login"}
+          <button disabled={loading} className="mt-6 h-12 w-full rounded-full bg-primary px-6 text-sm font-black text-white transition-colors hover:bg-primary-dark disabled:opacity-60">
+            {loading ? "Signing in..." : register ? "Register" : admin ? "Open Admin Panel" : teacher ? "Open Teacher Panel" : "Login"}
           </button>
           {error && <p className="mt-4 text-sm font-bold text-primary">{error}</p>}
 
-          {/* Students sign in with Google or a password; the admin and
+          {/* Students sign in with Google or email; the admin and
               teacher panels stay password-only. Renders nothing until a
               client id is configured on the server. */}
           {!admin && !teacher && (
@@ -2226,7 +2247,7 @@ export const AuthPage = ({ register = false, admin = false, teacher = false }) =
                 dangling at the end of the line. Spacing carries it. */}
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px]">
               <Link className="font-bold text-primary hover:underline" to="/">Back to Website</Link>
-              {!register && !admin && !teacher && (
+              {!register && (admin || teacher) && (
                 <>
                   <Link className="font-bold text-primary hover:underline" to="/forgot-password">Forgot password</Link>
                   <Link className="font-bold text-primary hover:underline" to="/request-password-reset">Admin reset</Link>

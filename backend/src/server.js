@@ -568,12 +568,25 @@ app.get("/api/health", (req, res) => res.json({ success: true, message: "ISKCON 
 app.post(
   "/api/auth/register",
   asyncHandler(async (req, res) => {
-    const { name, email, phone, mobile, password, confirmPassword, role = "student" } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ success: false, message: "Name, email and password are required" });
-    if (confirmPassword && password !== confirmPassword) return res.status(400).json({ success: false, message: "Passwords do not match" });
-    if (!strongPassword(password)) return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
-    const normalizedEmail = email.toLowerCase().trim();
+    let { name, email, phone, mobile, password, confirmPassword, role = "student" } = req.body;
+    if (!name || !email) return res.status(400).json({ success: false, message: "Name and email are required" });
     const safeRole = learnerRoles.includes(role) ? role : "student";
+    const isStaffRole = ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(safeRole);
+
+    if (isStaffRole || password) {
+      if (!password) {
+        return res.status(400).json({ success: false, message: "Password is required" });
+      }
+      if (confirmPassword && password !== confirmPassword) {
+        return res.status(400).json({ success: false, message: "Passwords do not match" });
+      }
+      if (!strongPassword(password)) {
+        return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include letters and numbers" });
+      }
+    } else {
+      password = `Devotee@${Math.floor(100000 + Math.random() * 900000)}`;
+    }
+    const normalizedEmail = email.toLowerCase().trim();
     const existing = await User.findOne({ email: normalizedEmail }).select("+password");
     if (existing?.emailVerified && existing.status !== "pending" && existing.status !== "inactive") return res.status(409).json({ success: false, message: "Email is already registered" });
     const user = existing || new User({ email: normalizedEmail });
@@ -631,23 +644,47 @@ app.post(
   "/api/auth/login",
   asyncHandler(async (req, res) => {
     const email = req.body.email?.toLowerCase()?.trim();
-    /* Never log the submitted password — this used to print it in clear. */
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(404).json({
+        success: false,
+        notFound: true,
+        message: "Email is not registered. Please create an account."
+      });
     }
-    const match = await user.matchPassword(req.body.password);
-    if (!match) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-    if (user.status === "blocked") return res.status(403).json({ success: false, message: "Account is blocked. Please contact admin." });
-    
+
     const isAdminOrTeacher = ["main_admin", "admin", "manager", "editor", "viewer", "teacher"].includes(user.role);
-    if (user.status !== "active" && !isAdminOrTeacher) {
-      return res.status(403).json({ success: false, message: "Account is pending verification or inactive" });
+
+    if (isAdminOrTeacher) {
+      if (!req.body.password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required for admin and teacher login. Please use the Admin Login."
+        });
+      }
+      const match = await user.matchPassword(req.body.password);
+      if (!match) {
+        return res.status(401).json({ success: false, message: "Invalid email or password" });
+      }
+    } else {
+      // For student / devotee / user accounts:
+      // Allow passwordless email login. If a password is provided and stored, verify it.
+      if (req.body.password && user.password) {
+        const match = await user.matchPassword(req.body.password);
+        if (!match) {
+          return res.status(401).json({ success: false, message: "Invalid password" });
+        }
+      }
     }
-    if (!isVerifiedForLogin(user) && !isAdminOrTeacher) {
-      return res.status(403).json({ success: false, message: "Please verify your email OTP before login", requiresVerification: true, email: user.email });
+
+    if (user.status === "blocked") return res.status(403).json({ success: false, message: "Account is blocked. Please contact admin." });
+
+    if (user.status !== "active" && !isAdminOrTeacher) {
+      user.status = "active";
+      user.emailVerified = true;
     }
     user.lastActiveAt = new Date();
     await user.save();

@@ -44,7 +44,11 @@ export const apiFetch = async (path, options = {}) => {
         window.location.href = "/login";
       }
     }
-    throw new Error(data.message || "Request failed");
+    const err = new Error(data.message || "Request failed");
+    err.status = response.status;
+    err.notFound = Boolean(data.notFound || response.status === 404);
+    err.data = data;
+    throw err;
   }
   return data;
 };
