@@ -429,17 +429,34 @@ export const Navbar = () => {
   }, []);
 
   const links = useMemo(
-    () =>
-      settings?.headerLinks?.filter((link) => link.status === "active").sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) || [
+    () => {
+      const activeHeaderLinks = settings?.headerLinks?.filter((link) => link.status === "active").sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      if (activeHeaderLinks && activeHeaderLinks.length > 0) {
+        if (!activeHeaderLinks.some((l) => l.url === "/books")) {
+          const coursesIdx = activeHeaderLinks.findIndex((l) => l.url === "/courses");
+          if (coursesIdx !== -1) {
+            return [
+              ...activeHeaderLinks.slice(0, coursesIdx + 1),
+              { label: "Books", url: "/books" },
+              ...activeHeaderLinks.slice(coursesIdx + 1)
+            ];
+          }
+          return [...activeHeaderLinks, { label: "Books", url: "/books" }];
+        }
+        return activeHeaderLinks;
+      }
+      return [
         { label: "Home", url: "/" },
         { label: "About", url: "/about" },
         { label: "Courses", url: "/courses" },
+        { label: "Books", url: "/books" },
         { label: "Trips", url: "/trips" },
         { label: "Visionaries", url: "/visionaries" },
         { label: "Blogs", url: "/blogs" },
         { label: "Media", url: "/gallery/images" },
         { label: "Contact", url: "/contact" }
-      ],
+      ];
+    },
     [settings]
   );
 
@@ -1218,6 +1235,7 @@ export const dashboardLinks = {
   student: [
     { label: "Dashboard", url: "/student/dashboard", icon: LayoutDashboard },
     { label: "My Courses", url: "/student/my-courses", icon: BookOpen },
+    { label: "My Book Orders", url: "/student/my-book-orders", icon: BookOpen },
     { label: "My Trips", url: "/student/my-trips", icon: Image },
     { label: "My Bookings", url: "/student/my-bookings", icon: CheckCircle2 },
     { label: "My Notes", url: "/student/notes", icon: FileText },
@@ -1251,6 +1269,9 @@ export const dashboardLinks = {
     { label: "Courses", url: "/admin/courses", icon: BookOpen },
     { label: "Question Paper Maker", url: "/admin/question-paper-maker", icon: BookOpen },
     { label: "Enrollment Requests", url: "/admin/course-requests", icon: UserCheck },
+    { label: "Books", url: "/admin/books", icon: BookOpen },
+    { label: "Book Orders", url: "/admin/book-orders", icon: CheckCircle2 },
+    { label: "Book Payment Settings", url: "/admin/book-payment-settings", icon: Settings },
     { label: "Trips", url: "/admin/pilgrimages", icon: Image },
     { label: "Pilgrimage Bookings", url: "/admin/pilgrimage-bookings", icon: UserCheck },
     { label: "Booking Taxes", url: "/admin/booking-taxes", icon: FileText },
@@ -1285,7 +1306,10 @@ const sectionOf = (url = "") => {
     visionaries: "visionaries",
     "video-intro": "home-sections",
     dashboard: "dashboard",
-    roles: "roles"
+    roles: "roles",
+    books: "books",
+    "book-orders": "book-orders",
+    "book-payment-settings": "book-payment-settings"
   };
   return map[tail] || tail.split("/")[0];
 };

@@ -67,6 +67,10 @@ import { AdminAccessPage } from "./adminAccess";
 import { StudentTripsPage, StudentTripDetailPage } from "./myTrips";
 import { TripDetailRoute } from "./tripRoute";
 import { VideosPage } from "./videosPage";
+import { BooksPage } from "./booksPage";
+import { BookDetailPage } from "./bookDetailPage";
+import { MyBookOrdersPage } from "./myBookOrders";
+import { AdminBooksPage, AdminBookOrdersPage, AdminBookPaymentSettingsPage } from "./adminBooks";
 import { useAuth } from "./AuthContext";
 import { useEffect } from "react";
 import { apiFetch } from "./api";
@@ -184,6 +188,8 @@ const App = () => {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/books" element={<BooksPage />} />
+        <Route path="/books/:slug" element={<BookDetailPage />} />
         <Route path="/trips" element={<TripsPage />} />
         <Route path="/classes" element={<ClassesRoute />} />
         <Route path="/classes/:slug" element={<ClassDetailRoute />} />
@@ -216,6 +222,7 @@ const App = () => {
       <Route element={<ProtectedRoute roles={["student"]}><DashboardLayout role="student" /></ProtectedRoute>}>
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/my-courses" element={<StudentCoursesPage />} />
+        <Route path="/student/my-book-orders" element={<MyBookOrdersPage />} />
         <Route path="/student/my-bookings" element={<StudentBookingsPage />} />
         <Route path="/student/my-trips" element={<StudentTripsPage />} />
         <Route path="/student/my-trips/:slug" element={<StudentTripDetailPage />} />
@@ -251,6 +258,9 @@ const App = () => {
         <Route path="courses/:courseId/lessons/:lessonId/questions" element={<AdminQuestionBankPage />} />
         <Route path="courses/:courseId/lessons/:lessonId/analytics" element={<AdminLessonAnalyticsPage />} />
         <Route path="courses/:courseId/requests" element={<AdminCourseRequestsPage />} />
+        <Route path="books" element={<AdminBooksPage />} />
+        <Route path="book-orders" element={<AdminBookOrdersPage />} />
+        <Route path="book-payment-settings" element={<AdminBookPaymentSettingsPage />} />
         <Route path="teachers" element={<AdminTeachersPage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="password-reset-requests" element={<AdminResetRequestsPage />} />

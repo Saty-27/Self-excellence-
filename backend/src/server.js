@@ -67,8 +67,10 @@ import {
   ExamResponse,
   CourseContent,
   ContentProgress,
+  BookOrder,
   modelRegistry
 } from "./models.js";
+import { booksRouter, attachProtectedBookRoutes, attachAdminBookRoutes } from "./booksRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2593,7 +2595,8 @@ const ADMIN_SECTIONS = [
   "trips", "trip-bookings", "booking-taxes", "upcoming-classes",
   "visionaries", "blogs", "video-blogs", "media",
   "subscribers", "contact-messages", "comments", "chat",
-  "footer", "site-settings", "traffic", "reports", "assets"
+  "footer", "site-settings", "traffic", "reports", "assets",
+  "books", "book-orders", "book-payment-settings"
 ];
 
 /* Maps an /api/admin/<resource> path onto a section key. */
@@ -2607,7 +2610,10 @@ const SECTION_ALIASES = {
   preachers: "visionaries",
   "video-intro": "home-secti" + "ons",
   "trips-overview": "trips",
-  "trip-stats": "trips"
+  "trip-stats": "trips",
+  "book-orders": "book-orders",
+  "book-payment-settings": "book-payment-settings",
+  books: "books"
 };
 const sectionFor = (resource = "") => {
   const head = String(resource).split("?")[0];
@@ -2699,6 +2705,12 @@ const recordActivity = async (req, payload) => {
 };
 
 const adminOnly = [protect, staffGate];
+
+/* Mount Books module routes */
+app.use("/api", booksRouter);
+attachProtectedBookRoutes(app, protect);
+attachAdminBookRoutes(app, adminOnly);
+
 app.post("/api/admin/upload", ...adminOnly, upload.single("file"), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
   const file = { url: `/uploads/${req.file.path.split("/uploads/")[1]}`, filename: req.file.filename };
@@ -2745,13 +2757,14 @@ app.get("/api/admin/users", ...adminOnly, asyncHandler(async (req, res) => {
 app.get("/api/admin/users/:id", ...adminOnly, asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).lean();
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
-  const [enrollments, progress, notesCount, commentsCount] = await Promise.all([
+  const [enrollments, progress, notesCount, commentsCount, bookOrders] = await Promise.all([
     Enrollment.find({ student: user._id }).populate("course", "title slug thumbnail").lean(),
     Progress.find({ student: user._id }).populate("course", "title slug").populate("lesson", "title slug").lean(),
     Note.countDocuments({ user: user._id }),
-    Comment.countDocuments({ user: user._id })
+    Comment.countDocuments({ user: user._id }),
+    BookOrder.find({ user: user._id }).populate("book", "title slug coverImage").sort({ createdAt: -1 }).lean().catch(() => [])
   ]);
-  res.json({ success: true, user: { ...user, enrollments, progress, notesCount, commentsCount } });
+  res.json({ success: true, user: { ...user, enrollments, progress, notesCount, commentsCount, bookOrders } });
 }));
 
 app.put("/api/admin/users/:id", ...adminOnly, asyncHandler(async (req, res) => {

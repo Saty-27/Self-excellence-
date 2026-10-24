@@ -66,6 +66,7 @@ import { PilgrimageSection, featuredJourney } from "./pilgrimage";
 import { PilgrimageBookingModal } from "./bookingModal";
 import { FeaturedTripsSection } from "./featuredTrips";
 import { CoursesSection } from "./courses";
+import { BooksSection } from "./booksSection";
 import { WhyJoinSection } from "./whyJoin";
 import { LatestVideoSection } from "./latestVideo";
 import { GoogleSignIn } from "./googleSignIn";
@@ -291,6 +292,8 @@ export const HomePage = () => {
       {active(map.courses) && (
         <CoursesSection courses={courses} loading={coursesState.loading} />
       )}
+
+      <BooksSection />
 
       <WhyJoinSection />
 
@@ -5079,6 +5082,52 @@ export const AdminUsersPage = () => {
                     )}
                   </div>
                 )}
+
+                {/* Book Orders */}
+                <div className="border-t border-black/5 pt-5">
+                  <h3 className="text-sm font-black text-ink uppercase tracking-wider text-muted mb-3">Book Orders</h3>
+                  {learningDetails.bookOrders?.length > 0 ? (
+                    <div className="overflow-x-auto rounded-xl border border-black/5 bg-soft/20">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-black/5 text-muted">
+                            <th className="p-3">Order #</th>
+                            <th className="p-3">Type</th>
+                            <th className="p-3">Book</th>
+                            <th className="p-3">Qty</th>
+                            <th className="p-3">Total</th>
+                            <th className="p-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {learningDetails.bookOrders.map((o) => (
+                            <tr key={o._id} className="border-b border-black/5 last:border-none">
+                              <td className="p-3 font-mono font-bold text-ink">{o.orderNumber}</td>
+                              <td className="p-3 capitalize">{(o.orderType || o.type || "").toLowerCase()}</td>
+                              <td className="p-3 font-medium">{o.bookTitleSnapshot || o.book?.title || o.bookId?.title || "Book"}</td>
+                              <td className="p-3">{o.quantity}</td>
+                              <td className="p-3 font-bold text-primary">₹{Number(o.totalAmount || 0).toLocaleString("en-IN")}</td>
+                              <td className="p-3">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                                  o.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                                  o.status === "confirmed" ? "bg-blue-50 text-blue-700" :
+                                  o.status === "rejected" ? "bg-rose-50 text-rose-700" :
+                                  "bg-amber-50 text-amber-700"
+                                }`}>
+                                  {o.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-black/10 py-4 text-center text-xs text-muted">
+                      No book orders placed by this user yet.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="py-12 text-center text-sm font-semibold text-rose-500">Failed to load learning profile details.</div>

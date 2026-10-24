@@ -1313,7 +1313,143 @@ const loginSessionSchema = new Schema(
   },
   { timestamps: true }
 );
-loginSessionSchema.index({ user: 1, loginAt: -1 });
+/* ============================================================
+   Sacred Books module
+   ------------------------------------------------------------
+   Books are sacred publications available for Buy (with delivery)
+   and Distribute (sponsored distribution seva).
+   ============================================================ */
+
+const bookSchema = new Schema(
+  {
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    title: { type: String, required: true, trim: true, maxlength: 150 },
+    subtitle: { type: String, trim: true, maxlength: 200 },
+    shortDescription: { type: String, trim: true, maxlength: 220 },
+    fullDescription: { type: String, default: "" },
+    authorOrTranslator: { type: String, trim: true },
+    language: { type: String, default: "English", trim: true },
+    pages: { type: Number, min: 0 },
+    binding: { type: String, trim: true },
+    publisher: { type: String, trim: true },
+    coverImage: { type: String, default: "" },
+    galleryImages: [{ type: String }],
+    highlights: [{ type: String }],
+    pricePerBook: { type: Number, required: true, min: 0 },
+    mrp: { type: Number, min: 0 },
+    distributionPricePerBook: { type: Number, min: 0, default: null },
+    gstPercent: { type: Number, default: 0, min: 0, max: 100 },
+    allowBuy: { type: Boolean, default: true },
+    allowDistribute: { type: Boolean, default: true },
+    minBuyQty: { type: Number, default: 1, min: 1 },
+    maxBuyQty: { type: Number, default: 100, min: 1 },
+    minDistributeQty: { type: Number, default: 1, min: 1 },
+    maxDistributeQty: { type: Number, default: 100000, min: 1 },
+    distributionPresets: {
+      type: [Number],
+      default: [10, 50, 100, 250, 500, 600, 700, 1000]
+    },
+    trackStock: { type: Boolean, default: false },
+    stockQuantity: { type: Number, default: 0, min: 0 },
+    isActive: { type: Boolean, default: true, index: true },
+    isFeatured: { type: Boolean, default: false, index: true },
+    displayOrder: { type: Number, default: 0, index: true }
+  },
+  { timestamps: true }
+);
+bookSchema.index({ isActive: 1, displayOrder: 1 });
+
+const bookOrderSchema = new Schema(
+  {
+    orderNumber: { type: String, required: true, unique: true, index: true },
+    user: { type: ObjectId, ref: "User", required: true, index: true },
+    book: { type: ObjectId, ref: "Book", required: true, index: true },
+    orderType: { type: String, enum: ["BUY", "DISTRIBUTE"], required: true, index: true },
+    bookTitleSnapshot: { type: String, required: true },
+    unitPriceSnapshot: { type: Number, required: true, min: 0 },
+    gstPercentSnapshot: { type: Number, default: 0, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
+    subtotal: { type: Number, required: true, min: 0 },
+    gstAmount: { type: Number, default: 0, min: 0 },
+    shippingFee: { type: Number, default: 0, min: 0 },
+    totalAmount: { type: Number, required: true, min: 0 },
+    currency: { type: String, default: "INR" },
+    status: {
+      type: String,
+      enum: ["PENDING_PAYMENT", "PAYMENT_SUBMITTED", "APPROVED", "REJECTED", "COMPLETED", "CANCELLED"],
+      default: "PENDING_PAYMENT",
+      index: true
+    },
+    payerName: { type: String, trim: true },
+    transactionReference: { type: String, trim: true },
+    paymentPhotoUrl: { type: String, default: "" },
+    paymentSubmittedAt: Date,
+    verifiedBy: { type: ObjectId, ref: "User" },
+    verifiedAt: Date,
+    rejectionReason: String,
+    adminNotes: String,
+    contactName: { type: String, required: true, trim: true },
+    contactPhone: { type: String, required: true, trim: true },
+    contactEmail: { type: String, required: true, lowercase: true, trim: true },
+    deliveryAddress: {
+      line1: { type: String, default: "" },
+      line2: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      pincode: { type: String, default: "" },
+      landmark: { type: String, default: "" }
+    },
+    dedicationName: { type: String, trim: true },
+    dedicationMessage: { type: String, trim: true, maxlength: 300 },
+    trackingInfo: { type: String, trim: true }
+  },
+  { timestamps: true }
+);
+bookOrderSchema.index({ user: 1, createdAt: -1 });
+bookOrderSchema.index({ status: 1, createdAt: -1 });
+
+const bookPaymentSettingSchema = new Schema(
+  {
+    singletonKey: { type: String, default: "default_book_settings", unique: true },
+    upiId: { type: String, default: "", trim: true },
+    upiPayeeName: { type: String, default: "ISKCON Juhu", trim: true },
+    qrCodeImage: { type: String, default: "" },
+    bankAccountHolder: { type: String, default: "", trim: true },
+    bankAccountNumber: { type: String, default: "", trim: true },
+    bankIfsc: { type: String, default: "", trim: true },
+    bankName: { type: String, default: "", trim: true },
+    bankBranch: { type: String, default: "", trim: true },
+    extraInstructions: { type: String, default: "" },
+    defaultGstPercent: { type: Number, default: 0, min: 0, max: 100 },
+    shippingFeeEnabled: { type: Boolean, default: false },
+    shippingFeeAmount: { type: Number, default: 0, min: 0 },
+    contactPhone: { type: String, default: "", trim: true },
+    contactEmail: { type: String, default: "", trim: true },
+    useTripPaymentDetails: { type: Boolean, default: true }
+  },
+  { timestamps: true }
+);
+
+const bookAuditLogSchema = new Schema(
+  {
+    entityType: { type: String, enum: ["BOOK", "ORDER", "SETTINGS"], required: true, index: true },
+    entityId: { type: String, required: true, index: true },
+    action: { type: String, required: true, index: true },
+    oldValue: Schema.Types.Mixed,
+    newValue: Schema.Types.Mixed,
+    performedBy: { type: ObjectId, ref: "User" },
+    performerName: String,
+    performerRole: String,
+    note: String
+  },
+  { timestamps: true }
+);
+bookAuditLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
+
+export const Book = make("Book", bookSchema);
+export const BookOrder = make("BookOrder", bookOrderSchema);
+export const BookPaymentSetting = make("BookPaymentSetting", bookPaymentSettingSchema);
+export const BookAuditLog = make("BookAuditLog", bookAuditLogSchema);
 
 export const Blog = make("Blog", blogSchema);
 export const VideoBlog = make("VideoBlog", videoBlogSchema);
@@ -1402,5 +1538,9 @@ export const modelRegistry = {
   "exam-papers": ExamPaper,
   "exam-assignments": ExamAssignment,
   "exam-attempts": ExamAttempt,
-  "exam-responses": ExamResponse
+  "exam-responses": ExamResponse,
+  books: Book,
+  "book-orders": BookOrder,
+  "book-payment-settings": BookPaymentSetting,
+  "book-audit-logs": BookAuditLog
 };
