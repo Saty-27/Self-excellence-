@@ -6981,6 +6981,118 @@ const runMigration = async () => {
       }
     }
 
+    // Sync Bhagavad Gita course & lessons (Free)
+    const bgCourse = await Course.findOneAndUpdate(
+      { slug: "bhagavad-gita" },
+      {
+        $set: {
+          title: "Bhagavad Gita",
+          slug: "bhagavad-gita",
+          thumbnail: "/uploads/courses/bhagavad-gita.jpg",
+          bannerImage: "/uploads/courses/bhagavad-gita.jpg",
+          category: "Scripture & Philosophy",
+          level: "Beginner",
+          duration: "Every Thursday",
+          priceType: "Free",
+          price: 0,
+          isFree: true,
+          enrollmentType: ["free"],
+          featured: true,
+          showOnHomepage: true,
+          status: "published",
+          isActive: true,
+          order: 2,
+          teacher: teacherUser?._id,
+          primaryTeacherId: teacherUser?._id,
+          createdBy: teacherUser?._id,
+          shortDescription: "A transformative Thursday study series on the verses and philosophy of Srimad Bhagavad Gita by HG Adbhuta Hari Prabhuji.",
+          description: "The Bhagavad Gita series offers a verse-by-verse and thematic exploration of Lord Krishna's timeless dialogue with Arjuna, uncovering practical spiritual wisdom for mental clarity, inner peace, and divine connection.\n\nDelivered every Thursday by HG Adbhuta Hari Prabhuji (Monk & Life Coach) at ISKCON Juhu, this structured course guides students through the deep philosophy of karma, jnana, and bhakti to live with purpose and spiritual excellence.",
+          whatYouWillLearn: [
+            "Gain practical insights from verse-by-verse wisdom of Srimad Bhagavad Gita",
+            "Understand the psychological mechanics of the mind, senses, and false ego",
+            "Overcome the illusion of control and surrender anxiety to the Supreme",
+            "Apply the teachings of Karma Yoga and Bhakti Yoga in contemporary daily life"
+          ]
+        }
+      },
+      { upsert: true, new: true }
+    ).catch(() => null);
+
+    if (bgCourse) {
+      const bgLessons = [
+        {
+          title: "The Illusion Of Control (BG 7.15) by HG Adbhuta Hari Prabhuji | 15th October, 2026",
+          slug: "the-illusion-of-control-bg-7-15",
+          order: 1,
+          sortOrder: 1,
+          isPreview: true,
+          youtubeUrl: "https://www.youtube.com/watch?v=SaQS2HiNahE",
+          videoUrl: "https://www.youtube.com/watch?v=SaQS2HiNahE",
+          description: "Lesson 1: An in-depth discourse exploring Bhagavad Gita 7.15, breaking down the illusion of material control and finding genuine shelter and surrender at the lotus feet of Krishna."
+        }
+      ];
+
+      for (const ld of bgLessons) {
+        const lesson = await Lesson.findOneAndUpdate(
+          { course: bgCourse._id, slug: ld.slug },
+          {
+            $set: {
+              course: bgCourse._id,
+              title: ld.title,
+              slug: ld.slug,
+              description: ld.description,
+              videoType: "youtube",
+              youtubeUrl: ld.youtubeUrl,
+              videoUrl: ld.videoUrl,
+              thumbnail: "/uploads/courses/bhagavad-gita.jpg",
+              order: ld.order,
+              sortOrder: ld.sortOrder,
+              isPreview: ld.isPreview,
+              status: "active",
+              publishStatus: "published",
+              commentsEnabled: true,
+              notesEnabled: true,
+              chatEnabled: true,
+              createdBy: teacherUser?._id,
+              videoSettings: {
+                disableSeeking: false,
+                enableCompleteButton: true
+              }
+            }
+          },
+          { upsert: true, new: true }
+        ).catch(() => null);
+
+        if (lesson) {
+          await CourseContent.findOneAndUpdate(
+            { course: bgCourse._id, lesson: lesson._id },
+            {
+              $set: {
+                course: bgCourse._id,
+                lesson: lesson._id,
+                type: "video",
+                title: lesson.title,
+                slug: `${lesson.slug}-content`,
+                order: lesson.order,
+                isRequired: true,
+                isActive: true,
+                videoType: "youtube",
+                youtubeUrl: lesson.youtubeUrl,
+                videoUrl: lesson.videoUrl,
+                thumbnail: lesson.thumbnail,
+                videoSettings: {
+                  disableSeeking: false,
+                  enableCompleteButton: true,
+                  completionThreshold: 80
+                }
+              }
+            },
+            { upsert: true, new: true }
+          ).catch(() => null);
+        }
+      }
+    }
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
