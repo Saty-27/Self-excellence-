@@ -6729,6 +6729,43 @@ const runMigration = async () => {
       { upsert: true, new: true }
     ).catch(() => null);
 
+    // Sync The Nectar of Devotion book details (Price: 250, GST: 18%)
+    await Book.findOneAndUpdate(
+      { slug: "the-nectar-of-devotion" },
+      {
+        $set: {
+          title: "The Nectar of Devotion",
+          slug: "the-nectar-of-devotion",
+          subtitle: "The Complete Science of Bhakti-Yoga by A.C. Bhaktivedanta Swami Prabhupada",
+          authorOrTranslator: "His Divine Grace A.C. Bhaktivedanta Swami Prabhupada",
+          pricePerBook: 250,
+          mrp: 320,
+          gstPercent: 18,
+          coverImage: "/uploads/books/the-nectar-of-devotion.jpg",
+          language: "Hindi & English",
+          binding: "Deluxe Edition",
+          allowBuy: true,
+          allowDistribute: true,
+          minBuyQty: 1,
+          maxBuyQty: 100,
+          minDistributeQty: 10,
+          maxDistributeQty: 100000,
+          distributionPresets: [10, 50, 100, 250, 500, 600, 700, 1000],
+          isActive: true,
+          displayOrder: 3,
+          shortDescription: "A summary study of Srila Rupa Goswami's Bhakti-rasamrta-sindhu, presenting the definitive science of devotional service.",
+          fullDescription: "<p>The Nectar of Devotion is a summary study of Sri Rupa Goswami’s Bhakti-rasamrta-sindhu, authored by His Divine Grace A.C. Bhaktivedanta Swami Prabhupada. It systematically presents the science of bhakti-yoga—the path of divine love and devotional service to Lord Krishna.</p><p>Covering the fundamental practices of sadhana-bhakti, the symptoms of ecstatic love (bhava-bhakti), and the ultimate perfection of pure unalloyed love of God (prema-bhakti), this masterpiece serves as an indispensable handbook for anyone seeking true spiritual fulfilment.</p>",
+          highlights: [
+            "The definitive guidebook for the complete science of Bhakti-yoga",
+            "Systematic explanation of 64 foundational devotional practices",
+            "Illuminates stages of devotional development from faith to pure divine love",
+            "Authorized summary study of Srila Rupa Goswami's Bhakti-rasamrta-sindhu"
+          ]
+        }
+      },
+      { upsert: true, new: true }
+    ).catch(() => null);
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
