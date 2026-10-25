@@ -6840,6 +6840,147 @@ const runMigration = async () => {
       { upsert: true, new: true }
     ).catch(() => null);
 
+    // Sync Brahmacharya Classes course & lessons (Free)
+    await Course.updateMany(
+      { slug: { $ne: "brahmacharya-classes" }, order: 1 },
+      { $set: { order: 2 } }
+    ).catch(() => null);
+
+    const teacherUser = await User.findOne({
+      $or: [{ name: /Adbhuta/i }, { role: "teacher" }, { role: "main_admin" }, { role: "admin" }]
+    }).catch(() => null);
+
+    const brahmacharyaCourse = await Course.findOneAndUpdate(
+      { slug: "brahmacharya-classes" },
+      {
+        $set: {
+          title: "Brahmacharya Classes",
+          slug: "brahmacharya-classes",
+          thumbnail: "/uploads/courses/brahmacharya.jpg",
+          bannerImage: "/uploads/courses/brahmacharya.jpg",
+          category: "Brahmacharya & Youth Excellence",
+          level: "Beginner",
+          duration: "3 weeks",
+          priceType: "Free",
+          price: 0,
+          isFree: true,
+          enrollmentType: ["free"],
+          featured: true,
+          showOnHomepage: true,
+          status: "published",
+          isActive: true,
+          order: 1,
+          teacher: teacherUser?._id,
+          primaryTeacherId: teacherUser?._id,
+          createdBy: teacherUser?._id,
+          shortDescription: "A foundational youth course on fearlessness, overcoming material desires, and spiritual discipline in Brahmacharya by HG Adbhuta Hari Prabhu.",
+          description: "Brahmacharya Classes offer deep, practical, and philosophical clarity for youth on mastering the senses, conquering fear through Krishna consciousness, and understanding why material desires can never bring lasting satisfaction.\n\nDelivered by HG Adbhuta Hari Prabhuji (Monk & Life Coach) at ISKCON Juhu, this free structured course guides sincere seekers toward purposeful living, mental strength, and unwavering devotion to Lord Krishna.",
+          whatYouWillLearn: [
+            "Cultivate fearlessness and mental clarity through Krishna Consciousness",
+            "Understand the spiritual psychology behind material desires and sense control",
+            "Daily sadhana and practical habits for living a purposeful, disciplined life",
+            "Direct answers and personal guidance on youth dilemmas and spiritual growth"
+          ]
+        }
+      },
+      { upsert: true, new: true }
+    ).catch(() => null);
+
+    if (brahmacharyaCourse) {
+      const lessonsData = [
+        {
+          title: "Fearlessness In Krishna Consciousness",
+          slug: "fearlessness-in-krishna-consciousness",
+          order: 1,
+          sortOrder: 1,
+          isPreview: true,
+          youtubeUrl: "https://www.youtube.com/watch?v=2CwOVLHG_S0",
+          videoUrl: "https://www.youtube.com/watch?v=2CwOVLHG_S0",
+          description: "Lesson 1: Cultivating genuine fearlessness, deep mental resilience, and spiritual security through Krishna consciousness with HG Adbhuta Hari Prabhuji at ISKCON Juhu."
+        },
+        {
+          title: "Fearlessness In Krishna Consciousness (Brahmacharya In KC) By Adbhuta Hari Pr I 17th Oct, 2026",
+          slug: "fearlessness-in-krishna-consciousness-part-2",
+          order: 2,
+          sortOrder: 2,
+          isPreview: false,
+          youtubeUrl: "https://www.youtube.com/watch?v=jIvFZoz7KCA",
+          videoUrl: "https://www.youtube.com/watch?v=jIvFZoz7KCA",
+          description: "Lesson 2: Exploring the foundational philosophy and daily discipline of Brahmacharya in Krishna Consciousness by HG Adbhuta Hari Prabhu (17th Oct, 2026)."
+        },
+        {
+          title: "Why Material Desires Never Bring Happiness? (Brahmacharya In KC) By Adbhuta Hari Pr I 10th Oct, 2026",
+          slug: "why-material-desires-never-bring-happiness",
+          order: 3,
+          sortOrder: 3,
+          isPreview: false,
+          youtubeUrl: "https://www.youtube.com/watch?v=uIgDTE1E6E0",
+          videoUrl: "https://www.youtube.com/watch?v=uIgDTE1E6E0",
+          description: "Lesson 3: Understanding why material desires fail to satisfy the soul and how to direct the mind toward eternal spiritual joy by HG Adbhuta Hari Prabhu (10th Oct, 2026)."
+        }
+      ];
+
+      for (const ld of lessonsData) {
+        const lesson = await Lesson.findOneAndUpdate(
+          { course: brahmacharyaCourse._id, slug: ld.slug },
+          {
+            $set: {
+              course: brahmacharyaCourse._id,
+              title: ld.title,
+              slug: ld.slug,
+              description: ld.description,
+              videoType: "youtube",
+              youtubeUrl: ld.youtubeUrl,
+              videoUrl: ld.videoUrl,
+              thumbnail: "/uploads/courses/brahmacharya.jpg",
+              order: ld.order,
+              sortOrder: ld.sortOrder,
+              isPreview: ld.isPreview,
+              status: "active",
+              publishStatus: "published",
+              commentsEnabled: true,
+              notesEnabled: true,
+              chatEnabled: true,
+              createdBy: teacherUser?._id,
+              videoSettings: {
+                disableSeeking: false,
+                enableCompleteButton: true
+              }
+            }
+          },
+          { upsert: true, new: true }
+        ).catch(() => null);
+
+        if (lesson) {
+          await CourseContent.findOneAndUpdate(
+            { course: brahmacharyaCourse._id, lesson: lesson._id },
+            {
+              $set: {
+                course: brahmacharyaCourse._id,
+                lesson: lesson._id,
+                type: "video",
+                title: lesson.title,
+                slug: `${lesson.slug}-content`,
+                order: lesson.order,
+                isRequired: true,
+                isActive: true,
+                videoType: "youtube",
+                youtubeUrl: lesson.youtubeUrl,
+                videoUrl: lesson.videoUrl,
+                thumbnail: lesson.thumbnail,
+                videoSettings: {
+                  disableSeeking: false,
+                  enableCompleteButton: true,
+                  completionThreshold: 80
+                }
+              }
+            },
+            { upsert: true, new: true }
+          ).catch(() => null);
+        }
+      }
+    }
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
