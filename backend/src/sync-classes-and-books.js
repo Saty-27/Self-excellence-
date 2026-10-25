@@ -102,6 +102,45 @@ async function run() {
   );
   console.log(" -> Book:", book.title, `₹${book.pricePerBook} (GST: ${book.gstPercent}%)`);
 
+  console.log("Upserting Shrimad Bhagavatam book...");
+  // Update existing bhagavatam-puran or upsert shrimad-bhagavatam
+  await Book.deleteMany({ slug: "bhagavatam-puran" }).catch(() => null);
+  const bhagavatam = await Book.findOneAndUpdate(
+    { slug: "shrimad-bhagavatam" },
+    {
+      $set: {
+        title: "Shrimad Bhagavatam",
+        subtitle: "The Immaculate Purana by A.C. Bhaktivedanta Swami Prabhupada",
+        authorOrTranslator: "His Divine Grace A.C. Bhaktivedanta Swami Prabhupada",
+        pricePerBook: 9100,
+        mrp: 11000,
+        gstPercent: 18,
+        coverImage: "/uploads/books/shrimad-bhagavatam.jpg",
+        language: "Hindi & English",
+        binding: "Deluxe Hardcover Edition",
+        allowBuy: true,
+        allowDistribute: true,
+        minBuyQty: 1,
+        maxBuyQty: 100,
+        minDistributeQty: 1,
+        maxDistributeQty: 100000,
+        distributionPresets: [1, 5, 10, 25, 50, 100],
+        isActive: true,
+        displayOrder: 2,
+        shortDescription: "The spotless Purana presenting the science of Krishna and devotional surrender by A.C. Bhaktivedanta Swami Prabhupada.",
+        fullDescription: `<p>Srimad Bhagavatam, known as the spotless Purana, is celebrated as the ripened fruit of the desire tree of Vedic literature. Translated and elucidated by His Divine Grace A.C. Bhaktivedanta Swami Prabhupada, it focuses entirely on transcendental devotion and glorifies the divine pastimes and attributes of the Supreme Personality of Godhead.</p><p>From the philosophical inquiries of King Pariksit and Sukadeva Goswami to the deep wisdom of devotional surrender, the Bhagavatam is a profound lighthouse guiding souls toward pure love of God and eternal joy.</p>`,
+        highlights: [
+          "The complete spotless Purana and cream of Vedic literature",
+          "Authentic Sanskrit verses, Roman transliteration and elaborate purports",
+          "Immortal pastimes of Supreme Lord Sri Krishna and His pure devotees",
+          "A timeless treasure for every home and spiritual institution"
+        ]
+      }
+    },
+    { upsert: true, new: true }
+  );
+  console.log(" -> Book:", bhagavatam.title, `₹${bhagavatam.pricePerBook} (GST: ${bhagavatam.gstPercent}%)`);
+
   await mongoose.disconnect();
   console.log("Done successfully!");
 }
