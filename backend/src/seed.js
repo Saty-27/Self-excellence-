@@ -67,7 +67,7 @@ const reset = async () => {
 };
 
 const run = async () => {
-  await mongoose.connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms", { serverSelectionTimeoutMS: 5000 });
+  await mongoose.connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence", { serverSelectionTimeoutMS: 5000 });
   await reset();
 
   const [admin, teacher, student, teacherTwo, teacherThree] = await User.create([

@@ -113,7 +113,7 @@ const log = (label, n) => console.log(`  ${String(n).padStart(3)} ${label}`);
 /* ============================================================ */
 
 const run = async () => {
-  await mongoose.connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms", {
+  await mongoose.connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence", {
     serverSelectionTimeoutMS: 8000
   });
   console.log(`\nSeeding demo data into: ${mongoose.connection.name}\n`);

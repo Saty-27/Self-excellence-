@@ -3,7 +3,7 @@ const { Page, SiteSetting } = require("./src/models.js");
 require("dotenv").config();
 
 async function run() {
-  const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms";
+  const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
   console.log("Connecting to:", uri);
   await mongoose.connect(uri);
   

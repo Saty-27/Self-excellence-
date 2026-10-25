@@ -2,7 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { UpcomingClass, Book, Course, Lesson, CourseContent, User } from "./models.js";
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
 
 async function run() {
   console.log("Connecting to MongoDB:", MONGO_URI);

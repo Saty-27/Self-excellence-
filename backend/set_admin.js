@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { User } from "./src/models.js";
 
 async function run() {
-  const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms";
+  const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
   console.log("Connecting to MongoDB:", uri);
   await mongoose.connect(uri);
 

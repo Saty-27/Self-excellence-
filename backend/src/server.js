@@ -7216,7 +7216,7 @@ const runMigration = async () => {
 };
 
 mongoose
-  .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms", {
+  .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence", {
     serverSelectionTimeoutMS: 5000,
     maxPoolSize: 10,
     minPoolSize: 2,

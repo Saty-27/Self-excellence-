@@ -2,7 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { Book, BookOrder, BookPaymentSetting, BookAuditLog } from "../models.js";
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
 
 export async function up() {
   console.log("Running migration 001_create_books_feature (UP)...");

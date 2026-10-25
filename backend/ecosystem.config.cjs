@@ -10,7 +10,8 @@ module.exports = {
       max_memory_restart: "280M",
       env: {
         NODE_ENV: "production",
-        PORT: 5055
+        PORT: 5055,
+        MONGO_URI: "mongodb://127.0.0.1:27017/self-excellence"
       },
       error_file: "./logs/pm2-err.log",
       out_file: "./logs/pm2-out.log",

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const MONGO_URI = "mongodb://127.0.0.1:27017/iskcon-lms";
+const MONGO_URI = "mongodb://127.0.0.1:27017/self-excellence";
 
 async function run() {
   try {

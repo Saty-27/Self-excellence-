@@ -2,7 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { Book, BookPaymentSetting } from "./models.js";
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/iskcon-lms";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
 
 const img = (id, w = 1200, h = 1600) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&h=${h}&q=85`;
