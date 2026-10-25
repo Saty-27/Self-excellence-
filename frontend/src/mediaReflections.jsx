@@ -281,17 +281,17 @@ export const MediaReflectionsSection = ({
           </div>
 
           {/* ----- Student Reflections ----- */}
-          {testimonials.length > 0 && (
-            <div className="mt-[72px] lg:mt-[96px]">
-              <SplitHeading
-                lead={reflectionsTitleLead}
-                accent={reflectionsTitleAccent}
-                className="text-[34px] sm:text-[42px] md:text-[48px] lg:text-[54px]"
-              />
-              <p className="mt-3 font-ui text-[15px] font-normal leading-[1.5] md:text-[17px]" style={{ color: C.sub }}>
-                {reflectionsSubtitle}
-              </p>
+          <div className="mt-[72px] lg:mt-[96px]">
+            <SplitHeading
+              lead={reflectionsTitleLead}
+              accent={reflectionsTitleAccent}
+              className="text-[34px] sm:text-[42px] md:text-[48px] lg:text-[54px]"
+            />
+            <p className="mt-3 font-ui text-[15px] font-normal leading-[1.5] md:text-[17px]" style={{ color: C.sub }}>
+              {reflectionsSubtitle}
+            </p>
 
+            {testimonials.length > 0 ? (
               <div className="relative mt-8 lg:mt-9">
                 <RailButton dir="left" label="Previous reflection" onClick={() => quoteRail.scrollBy(-1)} disabled={!quoteRail.canLeft} />
                 <div
@@ -300,7 +300,7 @@ export const MediaReflectionsSection = ({
                 >
                   {testimonials.map((t) => (
                     <figure
-                      key={t._id || t.name}
+                      key={t._id || t.name || t.userName}
                       className="flex w-[280px] shrink-0 snap-start flex-col rounded-lg border bg-white p-6 shadow-[0_8px_30px_rgba(50,35,20,0.05)] sm:w-[330px] lg:w-[calc((100%-48px)/3)]"
                       style={{ borderColor: C.cardBorder }}
                     >
@@ -308,12 +308,12 @@ export const MediaReflectionsSection = ({
                         className="font-display text-[20px] font-bold leading-[1.3] lg:text-[23px]"
                         style={{ color: C.quote }}
                       >
-                        “{t.quote}”
+                        “{t.testimonialText || t.quote}”
                       </blockquote>
                       <div className="flex-1" />
                       <figcaption className="mt-5">
                         <p className="font-ui text-[15px] font-semibold" style={{ color: C.dark }}>
-                          — {t.name}
+                          — {t.userName || t.name}
                         </p>
                         {t.rating > 0 && <div className="mt-2"><Stars count={t.rating} /></div>}
                       </figcaption>
@@ -322,8 +322,13 @@ export const MediaReflectionsSection = ({
                 </div>
                 <RailButton dir="right" label="Next reflection" onClick={() => quoteRail.scrollBy(1)} disabled={!quoteRail.canRight} />
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="mt-8 rounded-2xl border border-dashed border-black/10 bg-white/70 p-8 text-center sm:p-10">
+                <p className="font-display text-lg font-bold text-ink">Student reflections will appear here soon.</p>
+                <p className="mt-1 text-xs text-muted">Join our classes or events and share your spiritual journey.</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

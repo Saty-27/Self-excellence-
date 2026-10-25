@@ -75,6 +75,8 @@ import { AdminBooksPage, AdminBookOrdersPage, AdminBookPaymentSettingsPage } fro
 import { useAuth } from "./AuthContext";
 import { useEffect } from "react";
 import { apiFetch } from "./api";
+import { StudentTestimonialsPage } from "./studentTestimonials";
+import { AdminTestimonialsPage } from "./adminTestimonials";
 
 const adminRoutes = [
   ["home-sections", "home-sections"],
@@ -227,6 +229,7 @@ const App = () => {
         <Route path="/student/my-trips" element={<StudentTripsPage />} />
         <Route path="/student/my-trips/:slug" element={<StudentTripDetailPage />} />
         <Route path="/student/notes" element={<StudentNotesPage />} />
+        <Route path="/student/testimonials" element={<StudentTestimonialsPage />} />
         <Route path="/student/notifications" element={<NotificationsPage />} />
         <Route path="/student/course/:slug" element={<CourseDetailPage />} />
       </Route>
@@ -269,6 +272,7 @@ const App = () => {
         <Route path="contact" element={<AdminContactPage />} />
         <Route path="contact-messages" element={<AdminContactPage />} />
         <Route path="contact-settings" element={<AdminContactPage />} />
+        <Route path="testimonials" element={<AdminTestimonialsPage />} />
         <Route path="course-requests" element={<AdminCourseRequestsPage />} />
         <Route path="upcoming-classes" element={<AdminClassesPage />} />
         <Route path="pilgrimages" element={<AdminTripsPage />} />

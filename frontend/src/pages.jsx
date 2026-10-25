@@ -176,7 +176,7 @@ export const HomePage = () => {
   const videoBlogs = videoBlogsState.items;
   const galleryImages = useList("/gallery/images?highlight=true&limit=12", []).items;
   const galleryVideos = useList("/gallery/videos?highlight=true&limit=12", []).items;
-  const testimonials = useList("/testimonials?limit=3", []).items;
+  const testimonials = useList("/testimonials", []).items;
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState("");
 

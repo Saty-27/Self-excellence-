@@ -1468,6 +1468,7 @@ export const dashboardLinks = {
     { label: "My Trips", url: "/student/my-trips", icon: Image },
     { label: "My Bookings", url: "/student/my-bookings", icon: CheckCircle2 },
     { label: "My Notes", url: "/student/notes", icon: FileText },
+    { label: "Testimonials", url: "/student/testimonials", icon: MessageSquare },
     { label: "Notifications", url: "/student/notifications", icon: Bell },
     { label: "Profile", url: "/student/dashboard?profile=true", icon: User }
   ],
@@ -1495,6 +1496,7 @@ export const dashboardLinks = {
     { label: "Home Sections", url: "/admin/home-sections", icon: Home },
     { label: "About Sections", url: "/admin/about-sections", icon: FileText },
     { label: "Pages", url: "/admin/pages", icon: FileText },
+    { label: "Testimonials", url: "/admin/testimonials", icon: MessageSquare },
     { label: "Courses", url: "/admin/courses", icon: BookOpen },
     { label: "Question Paper Maker", url: "/admin/question-paper-maker", icon: BookOpen },
     { label: "Enrollment Requests", url: "/admin/course-requests", icon: UserCheck },
@@ -1540,7 +1542,8 @@ const sectionOf = (url = "") => {
     "book-orders": "book-orders",
     "book-payment-settings": "book-payment-settings",
     contact: "contact-messages",
-    "contact-settings": "contact-messages"
+    "contact-settings": "contact-messages",
+    testimonials: "testimonials"
   };
   return map[tail] || tail.split("/")[0];
 };

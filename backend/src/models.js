@@ -741,9 +741,56 @@ const benefitSchema = new Schema(
 );
 
 const testimonialSchema = new Schema(
-  { name: String, designation: String, image: String, quote: String, rating: { type: Number, default: 5 }, status: activeStatus, sortOrder: Number },
+  {
+    userId: { type: ObjectId, ref: "User", index: true },
+    userName: { type: String, trim: true },
+    name: { type: String, trim: true },
+    userEmail: { type: String, trim: true, lowercase: true },
+    userProfileImage: { type: String, default: "" },
+    image: { type: String, default: "" },
+    testimonialText: { type: String, required: true },
+    quote: { type: String },
+    designation: { type: String, default: "Student" },
+    rating: { type: Number, required: true, min: 1, max: 5, default: 5 },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "active", "inactive"],
+      default: "pending",
+      index: true
+    },
+    isFeatured: { type: Boolean, default: false, index: true },
+    showOnHomepage: { type: Boolean, default: false, index: true },
+    sortOrder: { type: Number, default: 0 },
+    rejectionReason: { type: String, default: "" },
+    adminResponse: { type: String, default: "" },
+    approvedAt: { type: Date },
+    approvedBy: { type: ObjectId, ref: "User" },
+    approvedByName: { type: String, default: "" }
+  },
   { timestamps: true }
 );
+
+testimonialSchema.pre("save", function (next) {
+  if (!this.userName && this.name) this.userName = this.name;
+  if (!this.name && this.userName) this.name = this.userName;
+  if (!this.testimonialText && this.quote) this.testimonialText = this.quote;
+  if (!this.quote && this.testimonialText) this.quote = this.testimonialText;
+  if (!this.userProfileImage && this.image) this.userProfileImage = this.image;
+  if (!this.image && this.userProfileImage) this.image = this.userProfileImage;
+  if (this.status === "active") {
+    this.status = "approved";
+    this.showOnHomepage = true;
+  }
+  if (this.rating) {
+    this.rating = Math.round(Number(this.rating));
+    if (this.rating < 1) this.rating = 1;
+    if (this.rating > 5) this.rating = 5;
+  }
+  next();
+});
+
+testimonialSchema.index({ status: 1, showOnHomepage: 1, isFeatured: -1, sortOrder: 1, createdAt: -1 });
+testimonialSchema.index({ userId: 1, createdAt: -1 });
 
 const pageSchema = new Schema(
   {

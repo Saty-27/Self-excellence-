@@ -1467,7 +1467,164 @@ app.put("/api/admin/pilgrimage-bookings/:id/reject", protect, authorize("main_ad
 
   res.json({ success: true, message: "Booking rejected.", booking });
 }));
-app.get("/api/testimonials", asyncHandler((req, res) => list(req, res, Testimonial, { status: "active" })));
+/* ============================================================
+   TESTIMONIALS & RATING SYSTEM — PUBLIC & STUDENT ROUTES
+   ============================================================ */
+
+// Public: Get approved & published testimonials for homepage / website
+app.get("/api/testimonials", asyncHandler(async (req, res) => {
+  const filter = {
+    status: { $in: ["approved", "active"] },
+    showOnHomepage: { $ne: false }
+  };
+  if (req.query.status && req.query.status !== "all") {
+    filter.status = req.query.status;
+  }
+  const limit = req.query.limit ? Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100) : 50;
+  const items = await Testimonial.find(filter)
+    .sort({ isFeatured: -1, sortOrder: 1, approvedAt: -1, createdAt: -1 })
+    .limit(limit)
+    .lean();
+  res.json({ success: true, count: items.length, items });
+}));
+
+// Student: Submit new testimonial
+app.post("/api/testimonials", protect, asyncHandler(async (req, res) => {
+  const { rating, testimonialText, quote } = req.body;
+  const rawText = (testimonialText || quote || "").trim();
+
+  if (!rating || !Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5) {
+    return res.status(400).json({ success: false, message: "Please select a rating from 1 to 5 stars." });
+  }
+  if (!rawText) {
+    return res.status(400).json({ success: false, message: "Testimonial text is required." });
+  }
+  if (rawText.length < 20) {
+    return res.status(400).json({ success: false, message: "Testimonial must be at least 20 characters long." });
+  }
+  if (rawText.length > 1000) {
+    return res.status(400).json({ success: false, message: "Testimonial cannot exceed 1000 characters." });
+  }
+
+  const testimonial = await Testimonial.create({
+    userId: req.user._id,
+    userName: req.user.name,
+    name: req.user.name,
+    userEmail: req.user.email,
+    userProfileImage: req.user.profileImage || "",
+    image: req.user.profileImage || "",
+    testimonialText: rawText,
+    quote: rawText,
+    rating: Number(rating),
+    status: "pending",
+    showOnHomepage: false,
+    isFeatured: false,
+    sortOrder: 0
+  });
+
+  // Notify admins
+  const admins = await User.find({ role: "main_admin" }).lean();
+  for (const admin of admins) {
+    await createNotification({
+      user: admin._id,
+      audience: "admin",
+      type: "system",
+      title: "New Testimonial Submitted",
+      message: `${req.user.name} submitted a reflection for review.`,
+      link: "/admin/testimonials"
+    });
+    emitToUser(admin._id, "new_notification", { title: "New Testimonial Submitted" });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: "Thank you for sharing your experience. Your testimonial has been submitted and is awaiting review.",
+    item: testimonial
+  });
+}));
+
+// Student: View own submitted testimonials
+app.get("/api/testimonials/my", protect, asyncHandler(async (req, res) => {
+  const items = await Testimonial.find({ userId: req.user._id })
+    .sort({ createdAt: -1 })
+    .lean();
+  res.json({ success: true, count: items.length, items });
+}));
+
+// Student: Edit own testimonial (re-enters moderation queue)
+app.put("/api/testimonials/:id", protect, asyncHandler(async (req, res) => {
+  const testimonial = await Testimonial.findById(req.params.id);
+  if (!testimonial) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+  if (String(testimonial.userId) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: "You are not authorized to edit this testimonial." });
+  }
+
+  const { rating, testimonialText, quote } = req.body;
+  const rawText = (testimonialText || quote || "").trim();
+
+  if (!rating || !Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5) {
+    return res.status(400).json({ success: false, message: "Please select a rating from 1 to 5 stars." });
+  }
+  if (!rawText) {
+    return res.status(400).json({ success: false, message: "Testimonial text is required." });
+  }
+  if (rawText.length < 20) {
+    return res.status(400).json({ success: false, message: "Testimonial must be at least 20 characters long." });
+  }
+  if (rawText.length > 1000) {
+    return res.status(400).json({ success: false, message: "Testimonial cannot exceed 1000 characters." });
+  }
+
+  testimonial.rating = Number(rating);
+  testimonial.testimonialText = rawText;
+  testimonial.quote = rawText;
+  // Critical moderation rule: Resets to pending when edited by student
+  testimonial.status = "pending";
+  testimonial.showOnHomepage = false;
+  testimonial.isFeatured = false;
+  testimonial.rejectionReason = "";
+  testimonial.approvedAt = undefined;
+  testimonial.approvedBy = undefined;
+  testimonial.approvedByName = "";
+
+  await testimonial.save();
+
+  // Notify admins
+  const admins = await User.find({ role: "main_admin" }).lean();
+  for (const admin of admins) {
+    await createNotification({
+      user: admin._id,
+      audience: "admin",
+      type: "system",
+      title: "Testimonial Resubmitted",
+      message: `${req.user.name} updated their testimonial. It is awaiting review.`,
+      link: "/admin/testimonials"
+    });
+    emitToUser(admin._id, "new_notification", { title: "Testimonial Resubmitted" });
+  }
+
+  res.json({
+    success: true,
+    message: "Your testimonial has been updated and resubmitted for review.",
+    item: testimonial
+  });
+}));
+
+// Student: Delete own testimonial
+app.delete("/api/testimonials/:id", protect, asyncHandler(async (req, res) => {
+  const testimonial = await Testimonial.findById(req.params.id);
+  if (!testimonial) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+  if (String(testimonial.userId) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: "You are not authorized to delete this testimonial." });
+  }
+
+  await Testimonial.findByIdAndDelete(req.params.id);
+  res.json({ success: true, message: "Testimonial deleted successfully." });
+}));
 
 const activeCourseFilter = () => ({ isActive: { $ne: false }, status: { $ne: "draft" } });
 const activeLessonFilter = () => ({ isActive: { $ne: false }, status: { $ne: "inactive" }, publishStatus: { $ne: "draft" } });
@@ -2712,7 +2869,8 @@ const ADMIN_SECTIONS = [
   "visionaries", "blogs", "video-blogs", "media",
   "subscribers", "contact-messages", "comments", "chat",
   "footer", "site-settings", "traffic", "reports", "assets",
-  "books", "book-orders", "book-payment-settings"
+  "books", "book-orders", "book-payment-settings",
+  "testimonials"
 ];
 
 /* Maps an /api/admin/<resource> path onto a section key. */
@@ -2731,7 +2889,8 @@ const SECTION_ALIASES = {
   "book-payment-settings": "book-payment-settings",
   books: "books",
   "contact-settings": "contact-messages",
-  contact: "contact-messages"
+  contact: "contact-messages",
+  testimonials: "testimonials"
 };
 const sectionFor = (resource = "") => {
   const head = String(resource).split("?")[0];
@@ -2828,6 +2987,392 @@ const adminOnly = [protect, staffGate];
 app.use("/api", booksRouter);
 attachProtectedBookRoutes(app, protect);
 attachAdminBookRoutes(app, adminOnly);
+
+/* ============================================================
+   ADMIN TESTIMONIAL MANAGEMENT ROUTES
+   ============================================================ */
+
+// Admin: Get all testimonials with filtering, search, and aggregate stats
+app.get("/api/admin/testimonials", ...adminOnly, asyncHandler(async (req, res) => {
+  const { status, rating, search, showOnHomepage } = req.query;
+  const filter = {};
+
+  if (status && status !== "all") {
+    if (status === "approved") {
+      filter.status = { $in: ["approved", "active"] };
+    } else {
+      filter.status = status;
+    }
+  }
+  if (rating && rating !== "all") {
+    filter.rating = Number(rating);
+  }
+  if (showOnHomepage !== undefined && showOnHomepage !== "all") {
+    filter.showOnHomepage = showOnHomepage === "true";
+  }
+  if (search && search.trim()) {
+    const regex = new RegExp(search.trim(), "i");
+    filter.$or = [
+      { userName: regex },
+      { name: regex },
+      { userEmail: regex },
+      { testimonialText: regex },
+      { quote: regex }
+    ];
+  }
+
+  const [items, total, pending, approved, rejected, published, ratingStats] = await Promise.all([
+    Testimonial.find(filter).sort({ isFeatured: -1, sortOrder: 1, createdAt: -1 }).lean(),
+    Testimonial.countDocuments(),
+    Testimonial.countDocuments({ status: "pending" }),
+    Testimonial.countDocuments({ status: { $in: ["approved", "active"] } }),
+    Testimonial.countDocuments({ status: "rejected" }),
+    Testimonial.countDocuments({ status: { $in: ["approved", "active"] }, showOnHomepage: true }),
+    Testimonial.aggregate([
+      { $match: { status: { $in: ["approved", "active"] } } },
+      { $group: { _id: null, avgRating: { $avg: "$rating" }, count: { $sum: 1 } } }
+    ])
+  ]);
+
+  const avgRating = ratingStats.length && ratingStats[0].avgRating
+    ? Number(ratingStats[0].avgRating.toFixed(1))
+    : 5.0;
+
+  res.json({
+    success: true,
+    stats: {
+      total,
+      pending,
+      approved,
+      rejected,
+      published,
+      averageRating: avgRating
+    },
+    count: items.length,
+    items
+  });
+}));
+
+// Admin: Manually create a testimonial (e.g. offline events, forms)
+app.post("/api/admin/testimonials", ...adminOnly, asyncHandler(async (req, res) => {
+  const {
+    userName,
+    name,
+    userEmail,
+    testimonialText,
+    quote,
+    rating,
+    status = "approved",
+    showOnHomepage = true,
+    isFeatured = false,
+    sortOrder = 0,
+    designation = "Student",
+    userProfileImage = ""
+  } = req.body;
+
+  const rawName = (userName || name || "").trim();
+  const rawText = (testimonialText || quote || "").trim();
+
+  if (!rawName) {
+    return res.status(400).json({ success: false, message: "User / Student name is required." });
+  }
+  if (!rawText) {
+    return res.status(400).json({ success: false, message: "Testimonial text is required." });
+  }
+  const numRating = Number(rating) || 5;
+  if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
+    return res.status(400).json({ success: false, message: "Rating must be an integer between 1 and 5." });
+  }
+
+  const isApproved = status === "approved" || status === "active";
+  const doc = await Testimonial.create({
+    userName: rawName,
+    name: rawName,
+    userEmail: userEmail ? userEmail.trim() : "",
+    testimonialText: rawText,
+    quote: rawText,
+    designation,
+    rating: numRating,
+    status: isApproved ? "approved" : (status || "pending"),
+    showOnHomepage: isApproved ? Boolean(showOnHomepage) : false,
+    isFeatured: Boolean(isFeatured),
+    sortOrder: Number(sortOrder) || 0,
+    userProfileImage,
+    image: userProfileImage,
+    approvedAt: isApproved ? new Date() : undefined,
+    approvedBy: isApproved ? req.user._id : undefined,
+    approvedByName: isApproved ? req.user.name : ""
+  });
+
+  await recordActivity(req, {
+    action: "create",
+    resource: "testimonials",
+    details: `Created testimonial for ${rawName} (${doc.status})`
+  });
+
+  res.status(201).json({ success: true, message: "Testimonial created successfully.", item: doc });
+}));
+
+// Admin: Edit testimonial
+app.put("/api/admin/testimonials/:id", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+
+  const {
+    userName,
+    name,
+    userEmail,
+    testimonialText,
+    quote,
+    rating,
+    status,
+    showOnHomepage,
+    isFeatured,
+    sortOrder,
+    designation,
+    userProfileImage,
+    rejectionReason,
+    adminResponse
+  } = req.body;
+
+  if (userName !== undefined || name !== undefined) {
+    const n = (userName || name || "").trim();
+    if (n) { doc.userName = n; doc.name = n; }
+  }
+  if (userEmail !== undefined) doc.userEmail = userEmail ? userEmail.trim() : "";
+  if (testimonialText !== undefined || quote !== undefined) {
+    const t = (testimonialText || quote || "").trim();
+    if (t) { doc.testimonialText = t; doc.quote = t; }
+  }
+  if (rating !== undefined) {
+    const r = Number(rating);
+    if (Number.isInteger(r) && r >= 1 && r <= 5) doc.rating = r;
+  }
+  if (designation !== undefined) doc.designation = designation;
+  if (userProfileImage !== undefined) { doc.userProfileImage = userProfileImage; doc.image = userProfileImage; }
+  if (sortOrder !== undefined) doc.sortOrder = Number(sortOrder) || 0;
+  if (isFeatured !== undefined) doc.isFeatured = Boolean(isFeatured);
+  if (rejectionReason !== undefined) doc.rejectionReason = rejectionReason;
+  if (adminResponse !== undefined) doc.adminResponse = adminResponse;
+
+  if (status !== undefined) {
+    const oldStatus = doc.status;
+    doc.status = status === "active" ? "approved" : status;
+    if (doc.status === "approved" && oldStatus !== "approved") {
+      doc.approvedAt = new Date();
+      doc.approvedBy = req.user._id;
+      doc.approvedByName = req.user.name;
+      doc.rejectionReason = "";
+    }
+  }
+
+  if (showOnHomepage !== undefined) {
+    doc.showOnHomepage = doc.status === "approved" ? Boolean(showOnHomepage) : false;
+  }
+
+  await doc.save();
+
+  await recordActivity(req, {
+    action: "edit",
+    resource: "testimonials",
+    details: `Updated testimonial for ${doc.userName} (Status: ${doc.status})`
+  });
+
+  res.json({ success: true, message: "Testimonial updated successfully.", item: doc });
+}));
+
+// Admin: Approve testimonial
+app.patch("/api/admin/testimonials/:id/approve", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+
+  doc.status = "approved";
+  doc.approvedAt = new Date();
+  doc.approvedBy = req.user._id;
+  doc.approvedByName = req.user.name;
+  doc.rejectionReason = "";
+  if (req.body.showOnHomepage !== undefined) {
+    doc.showOnHomepage = Boolean(req.body.showOnHomepage);
+  } else {
+    doc.showOnHomepage = true;
+  }
+
+  await doc.save();
+
+  if (doc.userId) {
+    await createNotification({
+      user: doc.userId,
+      audience: "student",
+      type: "system",
+      title: "Testimonial Approved!",
+      message: "Your testimonial has been approved and is now visible on the website.",
+      link: "/student/testimonials"
+    });
+    emitToUser(doc.userId, "new_notification", { title: "Testimonial Approved!" });
+  }
+
+  await recordActivity(req, {
+    action: "approve",
+    resource: "testimonials",
+    details: `Approved testimonial for ${doc.userName}`
+  });
+
+  res.json({ success: true, message: "Testimonial approved.", item: doc });
+}));
+
+// Admin: Reject testimonial
+app.patch("/api/admin/testimonials/:id/reject", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+
+  const reason = (req.body.reason || req.body.rejectionReason || "").trim() || "Did not meet submission guidelines.";
+  doc.status = "rejected";
+  doc.rejectionReason = reason;
+  doc.showOnHomepage = false;
+  await doc.save();
+
+  if (doc.userId) {
+    await createNotification({
+      user: doc.userId,
+      audience: "student",
+      type: "system",
+      title: "Testimonial Review Update",
+      message: `Your testimonial was not approved for publication. Reason: ${reason}`,
+      link: "/student/testimonials"
+    });
+    emitToUser(doc.userId, "new_notification", { title: "Testimonial Review Update" });
+  }
+
+  await recordActivity(req, {
+    action: "reject",
+    resource: "testimonials",
+    details: `Rejected testimonial for ${doc.userName}. Reason: ${reason}`
+  });
+
+  res.json({ success: true, message: "Testimonial rejected.", item: doc });
+}));
+
+// Admin: Toggle homepage visibility
+app.patch("/api/admin/testimonials/:id/toggle-homepage", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+  if (doc.status !== "approved" && doc.status !== "active") {
+    return res.status(400).json({ success: false, message: "Only approved testimonials can be published to the homepage." });
+  }
+
+  doc.showOnHomepage = !doc.showOnHomepage;
+  await doc.save();
+
+  await recordActivity(req, {
+    action: "toggle_homepage",
+    resource: "testimonials",
+    details: `${doc.showOnHomepage ? "Published" : "Unpublished"} testimonial for ${doc.userName} on homepage`
+  });
+
+  res.json({ success: true, message: doc.showOnHomepage ? "Published to homepage." : "Removed from homepage.", item: doc });
+}));
+
+// Admin: Toggle featured
+app.patch("/api/admin/testimonials/:id/toggle-featured", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+
+  doc.isFeatured = !doc.isFeatured;
+  await doc.save();
+
+  await recordActivity(req, {
+    action: "toggle_featured",
+    resource: "testimonials",
+    details: `${doc.isFeatured ? "Featured" : "Unfeatured"} testimonial for ${doc.userName}`
+  });
+
+  res.json({ success: true, message: doc.isFeatured ? "Marked as featured." : "Removed from featured.", item: doc });
+}));
+
+// Admin: Delete testimonial
+app.delete("/api/admin/testimonials/:id", ...adminOnly, asyncHandler(async (req, res) => {
+  const doc = await Testimonial.findById(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ success: false, message: "Testimonial not found." });
+  }
+
+  await Testimonial.findByIdAndDelete(req.params.id);
+
+  await recordActivity(req, {
+    action: "delete",
+    resource: "testimonials",
+    details: `Deleted testimonial for ${doc.userName}`
+  });
+
+  res.json({ success: true, message: "Testimonial deleted successfully." });
+}));
+
+// Admin: Bulk actions
+app.post("/api/admin/testimonials/bulk", ...adminOnly, asyncHandler(async (req, res) => {
+  const { action, ids, reason } = req.body;
+  if (!action || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ success: false, message: "Action and array of testimonial IDs are required." });
+  }
+
+  if (action === "approve") {
+    await Testimonial.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          status: "approved",
+          approvedAt: new Date(),
+          approvedBy: req.user._id,
+          approvedByName: req.user.name,
+          showOnHomepage: true,
+          rejectionReason: ""
+        }
+      }
+    );
+  } else if (action === "reject") {
+    await Testimonial.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          status: "rejected",
+          rejectionReason: reason || "Did not meet submission guidelines.",
+          showOnHomepage: false
+        }
+      }
+    );
+  } else if (action === "publish") {
+    await Testimonial.updateMany(
+      { _id: { $in: ids }, status: { $in: ["approved", "active"] } },
+      { $set: { showOnHomepage: true } }
+    );
+  } else if (action === "unpublish") {
+    await Testimonial.updateMany(
+      { _id: { $in: ids } },
+      { $set: { showOnHomepage: false } }
+    );
+  } else if (action === "delete") {
+    await Testimonial.deleteMany({ _id: { $in: ids } });
+  } else {
+    return res.status(400).json({ success: false, message: `Unknown bulk action: ${action}` });
+  }
+
+  await recordActivity(req, {
+    action: "bulk_" + action,
+    resource: "testimonials",
+    details: `Bulk ${action} executed on ${ids.length} testimonials.`
+  });
+
+  res.json({ success: true, message: `Bulk action '${action}' completed on ${ids.length} testimonials.` });
+}));
 
 app.post("/api/admin/upload", ...adminOnly, uploadLimiter, upload.single("file"), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -6001,6 +6546,61 @@ const runMigration = async () => {
         });
       }
     }
+
+    // Migrate any legacy testimonials with status 'active' to 'approved' and published
+    await Testimonial.updateMany(
+      { status: "active" },
+      { $set: { status: "approved", showOnHomepage: true } }
+    ).catch(() => null);
+
+    const testimonialCount = await Testimonial.countDocuments().catch(() => 0);
+    if (testimonialCount === 0) {
+      await Testimonial.create([
+        {
+          userName: "Aarav Mehta",
+          name: "Aarav Mehta",
+          userEmail: "aarav@example.com",
+          designation: "Engineering student",
+          testimonialText: "The classes gave me a clear way to think, study, and stay connected with Krishna.",
+          quote: "The classes gave me a clear way to think, study, and stay connected with Krishna.",
+          rating: 5,
+          status: "approved",
+          showOnHomepage: true,
+          isFeatured: true,
+          sortOrder: 1,
+          approvedAt: new Date()
+        },
+        {
+          userName: "Kavya Shah",
+          name: "Kavya Shah",
+          userEmail: "kavya@example.com",
+          designation: "Final year, B.Com",
+          testimonialText: "I came for one Sunday and stayed for a year. The questions session is what kept me.",
+          quote: "I came for one Sunday and stayed for a year. The questions session is what kept me.",
+          rating: 5,
+          status: "approved",
+          showOnHomepage: true,
+          isFeatured: false,
+          sortOrder: 2,
+          approvedAt: new Date()
+        },
+        {
+          userName: "Rohan Iyer",
+          name: "Rohan Iyer",
+          userEmail: "rohan@example.com",
+          designation: "Software engineer",
+          testimonialText: "Mayapur changed how I think about my mornings. I have kept the 5 AM habit since.",
+          quote: "Mayapur changed how I think about my mornings. I have kept the 5 AM habit since.",
+          rating: 5,
+          status: "approved",
+          showOnHomepage: true,
+          isFeatured: false,
+          sortOrder: 3,
+          approvedAt: new Date()
+        }
+      ]).catch(() => null);
+    }
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
