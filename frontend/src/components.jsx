@@ -817,7 +817,7 @@ export const FloatingContactButtons = () => {
   return (
     <>
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-auto">
+      <div className="fixed bottom-6 right-6 z-[9990] flex flex-col items-end gap-3.5 pointer-events-auto">
         {/* Contact Us Floating Button */}
         <button
           onClick={() => {
@@ -825,12 +825,16 @@ export const FloatingContactButtons = () => {
             setError("");
             setOpen(true);
           }}
-          className="group relative flex h-13 w-13 items-center justify-center rounded-full bg-primary text-white shadow-xl shadow-primary/30 transition-all duration-200 hover:scale-110 hover:bg-primary/95 focus:outline-none"
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-white border border-black/10 shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none"
           aria-label="Contact Us"
           title="Contact Us"
         >
-          <MessageSquare size={22} />
-          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white shadow-md sm:group-hover:block">
+          <img
+            src="/assets/contact-icon.png"
+            alt="Contact Us"
+            className="h-8 w-8 object-contain transition-transform duration-300 group-hover:scale-110"
+          />
+          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink/90 backdrop-blur-sm px-3.5 py-1.5 text-xs font-bold text-white shadow-xl sm:group-hover:block">
             Contact Us
           </span>
         </button>
@@ -840,14 +844,16 @@ export const FloatingContactButtons = () => {
           href={waLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/40 transition-all duration-200 hover:scale-110 hover:bg-[#20ba5a] focus:outline-none"
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none drop-shadow-2xl"
           aria-label="Chat on WhatsApp"
           title={`Chat on WhatsApp (${whatsappNum})`}
         >
-          <svg className="h-7 w-7 fill-current" viewBox="0 0 24 24">
-            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.587 1.771.884 2.791.885h.005c3.181 0 5.767-2.586 5.767-5.767.001-3.18-2.585-5.77-5.766-5.77zm3.364 8.163c-.144.405-.837.774-1.17.824-.312.045-.694.06-2.001-.482-1.637-.678-2.684-2.336-2.766-2.445-.081-.11-.663-.883-.663-1.684 0-.802.42-1.196.569-1.359.149-.163.325-.203.433-.203.11 0 .217.002.312.007.1.006.234-.038.366.279.136.326.463 1.13.504 1.212.041.082.068.177.014.284-.055.109-.082.177-.163.272-.082.096-.172.214-.246.287-.082.082-.167.172-.072.335.095.163.424.7.91 1.133.627.558 1.155.73 1.318.812.163.082.259.068.354-.041.096-.11.408-.476.517-.639.109-.163.218-.136.367-.082.149.055.952.449 1.115.531.163.082.272.122.312.19.041.068.041.394-.103.799zm-3.364-10.335c-5.514 0-10 4.486-10 10 0 1.956.564 3.784 1.542 5.335l-1.637 5.978 6.137-1.61c1.503.909 3.255 1.433 5.127 1.433h.005c5.514 0 10-4.486 10-10 0-5.514-4.486-10-10-10zm0 18.25c-1.696 0-3.313-.497-4.686-1.364l-.336-.212-3.468.91.925-3.379-.232-.37c-.958-1.528-1.467-3.298-1.467-5.115 0-4.549 3.701-8.25 8.25-8.25 4.549 0 8.25 3.701 8.25 8.25 0 4.549-3.701 8.25-8.25 8.25z" />
-          </svg>
-          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white shadow-md sm:group-hover:block">
+          <img
+            src="/assets/whatsapp-icon.png"
+            alt="WhatsApp"
+            className="h-14 w-14 object-contain transition-transform duration-300 group-hover:scale-105"
+          />
+          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink/90 backdrop-blur-sm px-3.5 py-1.5 text-xs font-bold text-white shadow-xl sm:group-hover:block">
             Chat on WhatsApp
           </span>
         </a>
@@ -889,14 +895,19 @@ export const FloatingContactButtons = () => {
               </div>
             ) : (
               <>
-                <div className="mb-6">
-                  <span className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary">
-                    Get in Touch
-                  </span>
-                  <h3 className="mt-2 text-2xl font-black text-ink">Contact Us</h3>
-                  <p className="mt-1 text-xs text-muted">
-                    Have questions about courses, temple programs, or seva? Leave a message below.
-                  </p>
+                <div className="mb-6 flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 border border-amber-100 p-2 shadow-sm">
+                    <img src="/assets/contact-icon.png" alt="" className="h-8 w-8 object-contain" />
+                  </div>
+                  <div>
+                    <span className="inline-block rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-black uppercase tracking-wide text-primary">
+                      Get in Touch
+                    </span>
+                    <h3 className="mt-1 text-2xl font-black text-ink">Contact Us</h3>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Have questions about courses, temple programs, or seva? Leave a message below.
+                    </p>
+                  </div>
                 </div>
 
                 {error && (
