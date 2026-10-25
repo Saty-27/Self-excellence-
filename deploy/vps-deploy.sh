@@ -42,8 +42,9 @@ npm run build
 # 6. PM2 Restart with 1 Worker & 280MB Memory Ceiling
 echo "--> Reloading backend via PM2..."
 cd "${APP_DIR}/backend"
-if pm2 list | grep -q "self-excellence-backend"; then
-    pm2 reload ecosystem.config.cjs --update-env
+pm2 delete self-excellence-backend 2>/dev/null || true
+if pm2 list | grep -q "self-excellence"; then
+    pm2 restart ecosystem.config.cjs --update-env
 else
     pm2 start ecosystem.config.cjs
 fi

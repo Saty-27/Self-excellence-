@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "self-excellence-backend",
+      name: "self-excellence",
       script: "./src/server.js",
       cwd: "/var/www/self-excellence/backend",
       instances: 1,
