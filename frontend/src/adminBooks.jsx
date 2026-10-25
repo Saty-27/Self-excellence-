@@ -439,7 +439,12 @@ export const AdminBooksPage = () => {
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <label className={labelClass}>Cover Image URL or File Upload</label>
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <label className={labelClass}>Cover Image URL or File Upload</label>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/70">
+                        📐 Recommended: 600 × 900 px (2:3 book portrait) or 800 × 1200 px
+                      </span>
+                    </div>
                     <input
                       value={editingBook.coverImage}
                       onChange={(e) => setEditingBook({ ...editingBook, coverImage: e.target.value })}
@@ -1380,6 +1385,12 @@ export const AdminBookPaymentSettingsPage = () => {
                     </div>
                   )}
                   <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                      <label className={labelClass}>Payment QR Code Image</label>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/70">
+                        📐 Recommended: 500 × 500 px (1:1 square ratio) • High contrast JPG or PNG
+                      </span>
+                    </div>
                     <input
                       value={settings.qrCodeImage || ""}
                       onChange={(e) => setSettings({ ...settings, qrCodeImage: e.target.value })}

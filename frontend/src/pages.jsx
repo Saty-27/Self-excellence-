@@ -4085,8 +4085,13 @@ export const AdminTeachersPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-ink uppercase">Profile Image URL / Upload</label>
-                  <div className="flex gap-2 mt-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                    <label className="text-xs font-black text-ink uppercase">Profile Image URL / Upload</label>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/70">
+                      📐 Recommended: 600 × 600 px (1:1 square) or 800 × 800 px
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={formData.profileImage}
@@ -5604,9 +5609,77 @@ const numberValue = (value) => (value === undefined || value === null ? "" : val
 const boolValue = (value, fallback = true) => (value === undefined || value === null ? fallback : Boolean(value));
 const fieldLabel = (field) => field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
 
-const FileField = ({ label, value, folder, accept, onChange }) => {
+export const getMediaSizeRecommendation = (folder = "", label = "") => {
+  const f = (folder || "").toLowerCase();
+  const l = (label || "").toLowerCase();
+
+  // Banners
+  if (f.includes("banner") || l.includes("banner")) {
+    if (l.includes("desktop") || l.includes("laptop")) return "Recommended: 1920 × 1080 px (16:9 ratio) or 1920 × 800 px";
+    if (l.includes("tablet")) return "Recommended: 1200 × 800 px (3:2 ratio) or 1024 × 768 px (4:3 ratio)";
+    if (l.includes("mobile")) return "Recommended: 800 × 1000 px (4:5 ratio) or 750 × 1000 px (3:4 ratio)";
+    return "Recommended: 1920 × 1080 px (16:9 widescreen)";
+  }
+
+  // QR Codes
+  if (f.includes("qr") || l.includes("qr")) {
+    return "Recommended: 500 × 500 px (1:1 square ratio) • High contrast JPG or PNG";
+  }
+
+  // Courses
+  if (f.includes("courses")) {
+    if (l.includes("qr")) return "Recommended: 500 × 500 px (1:1 square ratio) • High contrast JPG or PNG";
+    if (l.includes("banner")) return "Recommended: 1920 × 800 px (hero course banner)";
+    return "Recommended: 1280 × 720 px (16:9 widescreen) or 800 × 450 px";
+  }
+
+  // Videos
+  if (f.includes("video") || l.includes("video")) {
+    if (l.includes("thumbnail") || l.includes("poster")) return "Recommended: 1280 × 720 px (16:9 widescreen)";
+    return "Recommended: 1080p (1920 × 1080) or 720p • MP4, WebM (Max 30MB)";
+  }
+
+  // PDFs & Handouts
+  if (f.includes("pdf") || l.includes("pdf") || l.includes("attachment") || l.includes("handout") || l.includes("guide")) {
+    return "Recommended: Standard PDF Document (Max 15MB)";
+  }
+
+  // Teachers / Preachers / Visionaries / Speakers
+  if (f.includes("preacher") || f.includes("teacher") || f.includes("visionar") || l.includes("teacher") || l.includes("speaker") || l.includes("profile") || l.includes("preacher")) {
+    return "Recommended: 600 × 600 px (1:1 square ratio) or 800 × 800 px";
+  }
+
+  // Books
+  if (f.includes("book") || l.includes("book") || l.includes("cover")) {
+    return "Recommended: 600 × 900 px (2:3 portrait book ratio) or 800 × 1200 px";
+  }
+
+  // Blogs
+  if (f.includes("blog") || l.includes("blog")) {
+    return "Recommended: 1200 × 630 px (landscape ratio) • JPG, WebP";
+  }
+
+  // Classes / Trips / Pilgrimages
+  if (f.includes("trip") || f.includes("pilgrim") || f.includes("class")) {
+    if (l.includes("banner")) return "Recommended: 1920 × 800 px (panoramic hero)";
+    if (l.includes("day")) return "Recommended: 600 × 400 px (3:2 ratio)";
+    if (l.includes("gallery")) return "Recommended: 1200 × 900 px (4:3 ratio) or 1200 × 800 px (3:2 ratio)";
+    return "Recommended: 1200 × 800 px (3:2 ratio) or 1920 × 1080 px (16:9)";
+  }
+
+  // Thumbnails generic
+  if (l.includes("thumbnail")) {
+    return "Recommended: 1280 × 720 px (16:9 widescreen)";
+  }
+
+  return "";
+};
+
+const FileField = ({ label, value, folder, accept, onChange, hint }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const sizeHint = hint || getMediaSizeRecommendation(folder, label);
+
   const upload = async (file) => {
     if (!file) return;
     setUploading(true);
@@ -5622,7 +5695,14 @@ const FileField = ({ label, value, folder, accept, onChange }) => {
   };
   return (
     <label className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">
-      {label}
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <span>{label}</span>
+        {sizeHint && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/70">
+            📐 {sizeHint}
+          </span>
+        )}
+      </div>
       <input type="file" accept={accept} onChange={(event) => upload(event.target.files?.[0])} className="text-sm font-normal" />
       <input value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder="Uploaded URL" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" />
       {uploading && <span className="text-xs text-primary">Uploading...</span>}
@@ -6439,9 +6519,37 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
             if (field === "appliesTo") return <label key={field} className="grid gap-1 text-xs font-black uppercase tracking-wide text-muted">Flat amount applies<select value={form[field] || "booking"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-normal normal-case text-ink"><option value="booking">Once per booking</option><option value="person">Per traveller</option></select></label>;
             if (field === "videoType") return <label key={field} className="grid gap-1 text-xs font-black uppercase tracking-wide text-muted">Video source<select value={form[field] || "youtube"} onChange={(e) => setForm({ ...form, [field]: e.target.value })} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-normal normal-case text-ink"><option value="youtube">Paste a YouTube or Vimeo link</option><option value="upload">Upload a video file</option></select></label>;
             /* The poster is optional: left blank it is taken from the video. */
-            if (field === "thumbnail" && resource === "video-blogs") return <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">Thumbnail <span className="font-normal normal-case text-muted">— optional. Leave blank and the still is taken from the video itself.</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFile(field, e.target.files?.[0])} /><input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="Auto from video" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" />{form.thumbnail ? <button type="button" onClick={() => setForm({ ...form, thumbnail: "" })} className="justify-self-start rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold">Clear and use the video still</button> : null}</label>;
+            if (field === "thumbnail" && resource === "video-blogs") return (
+              <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <span>Thumbnail <span className="font-normal normal-case text-muted">— optional. Leave blank for video still.</span></span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/70">
+                    📐 Recommended: 1280 × 720 px (16:9 widescreen)
+                  </span>
+                </div>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFile(field, e.target.files?.[0])} />
+                <input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="Auto from video" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" />
+                {form.thumbnail ? <button type="button" onClick={() => setForm({ ...form, thumbnail: "" })} className="justify-self-start rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold">Clear and use the video still</button> : null}
+              </label>
+            );
             if (type === "checkbox") return <label key={field} className="flex items-center gap-3 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold"><input type="checkbox" checked={Boolean(form[field])} onChange={(e) => setForm({ ...form, [field]: e.target.checked })} />{label}</label>;
-            if (type === "file") return <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">{label}<input type="file" onChange={(e) => handleFile(field, e.target.files?.[0])} /><input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="URL" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" /></label>;
+            if (type === "file") {
+              const sizeHint = getMediaSizeRecommendation(resource, field);
+              return (
+                <label key={field} className="grid gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-bold">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <span>{label}</span>
+                    {sizeHint && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/70">
+                        📐 {sizeHint}
+                      </span>
+                    )}
+                  </div>
+                  <input type="file" onChange={(e) => handleFile(field, e.target.files?.[0])} />
+                  <input value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder="URL" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-normal" />
+                </label>
+              );
+            }
             if (type === "textarea") return <textarea key={field} value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder={label} rows="4" className="rounded-xl border border-black/10 px-4 py-3 md:col-span-2" />;
             return <input key={field} type={type} value={form[field] || ""} onChange={(e) => setForm({ ...form, [field]: e.target.value })} placeholder={label} className="rounded-xl border border-black/10 px-4 py-3" />;
           })}

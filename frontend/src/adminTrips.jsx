@@ -338,6 +338,11 @@ export const AdminTripsPage = () => {
 
         {/* Main image */}
         <Card title="Main image" subtitle="Used on the trip card, the listing and the detail hero.">
+          <div className="mb-3">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 border border-amber-200/70">
+              📐 Recommended: 1200 × 800 px (3:2 ratio) or 1920 × 1080 px (16:9 ratio)
+            </span>
+          </div>
           <div className="flex flex-wrap items-start gap-4">
             {form.image && <img src={assetUrl(form.image)} alt="" className="h-28 w-44 rounded-xl border border-black/10 object-cover" />}
             <div className="grid gap-2">
@@ -396,6 +401,11 @@ export const AdminTripsPage = () => {
                   <Field title="Afternoon"><textarea rows="2" value={day.afternoon || ""} onChange={(e) => setDay(i, "afternoon", e.target.value)} className={input} /></Field>
                   <Field title="Evening"><textarea rows="2" value={day.evening || ""} onChange={(e) => setDay(i, "evening", e.target.value)} className={input} /></Field>
                   <Field title="Day image (optional)">
+                    <div className="mb-1">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/70">
+                        📐 Recommended: 600 × 400 px (3:2 ratio)
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2">
                       {day.imageUrl && <img src={assetUrl(day.imageUrl)} alt="" className="h-11 w-16 rounded-lg object-cover" />}
                       <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={async (e) => { const up = await dayUpload.send(e.target.files?.[0]); if (up) setDay(i, "imageUrl", up.url); }} className="text-xs" />
@@ -410,7 +420,7 @@ export const AdminTripsPage = () => {
         {/* Gallery */}
         <Card
           title="Gallery"
-          subtitle="Shown on the trip detail page. Drag order with the arrows."
+          subtitle="Shown on the trip detail page. Drag order with the arrows. Recommended: 1200 × 900 px (4:3 ratio) or 1200 × 800 px (3:2 ratio)."
           actions={
             <>
               <input ref={galleryInput} type="file" multiple accept=".jpg,.jpeg,.png,.webp" onChange={(e) => addGallery(e.target.files)} className="hidden" />
@@ -486,7 +496,12 @@ export const AdminTripsPage = () => {
               <div className="flex items-end gap-3">
                 {form.paymentQrImage && <img src={assetUrl(form.paymentQrImage)} alt="" className="h-20 w-20 shrink-0 rounded-lg border border-black/10 object-contain" />}
                 <label className="grid flex-1 gap-1.5">
-                  <span className={label}>Payment QR image</span>
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <span className={label}>Payment QR image</span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/70">
+                      📐 Recommended: 500 × 500 px (1:1 square)
+                    </span>
+                  </div>
                   <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={async (e) => { const up = await qrUpload.send(e.target.files?.[0]); if (up) set("paymentQrImage", up.url); }} className="text-xs" />
                   {form.paymentQrImage && (
                     <button type="button" onClick={() => set("paymentQrImage", "")} className="w-fit text-[11px] font-black text-rose-600">Remove QR</button>
