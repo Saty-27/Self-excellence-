@@ -22,6 +22,12 @@ const SHELL = "mx-auto w-full max-w-shell px-4 sm:px-6";
 const longDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "";
 
+const getYouTubeEmbedUrl = (url = "") => {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : (url.includes("embed") ? url : null);
+};
+
 /* ------------------------------------------------------------------ */
 
 export const ClassesPage = ({ onRegister }) => {
@@ -235,6 +241,7 @@ export const ClassDetailPage = ({ onRegister }) => {
   const highlights = (item.highlights || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   const register = () => (onRegister ? onRegister(item) : null);
+  const embedUrl = getYouTubeEmbedUrl(item.videoUrl || item.youtubeUrl);
 
   return (
     <>
@@ -327,6 +334,24 @@ export const ClassDetailPage = ({ onRegister }) => {
                 </h2>
                 <div className="mt-5 space-y-4 font-ui text-[15.5px] leading-[1.75] text-body">
                   {(item.fullDescription || item.shortDescription).split("\n").filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+                </div>
+              </section>
+            )}
+
+            {embedUrl && (
+              <section>
+                <p className="font-ui text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Class Recording / Livestream</p>
+                <h2 className="mt-2 font-display text-[24px] font-bold text-heading md:text-[28px]">
+                  Watch Video
+                </h2>
+                <div className="mt-5 aspect-video w-full overflow-hidden rounded-2xl bg-black shadow-lg">
+                  <iframe
+                    src={embedUrl}
+                    title={item.title}
+                    className="h-full w-full border-0"
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  />
                 </div>
               </section>
             )}

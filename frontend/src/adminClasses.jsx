@@ -84,6 +84,7 @@ const BLANK = {
   schedule: [], highlights: [], whoFor: [], gallery: [],
   pdfUrl: "", pdfName: "", pdfSize: 0,
   registrationNote: "", seats: "",
+  videoUrl: "", youtubeUrl: "",
   buttonText: "Register Now", buttonLink: "",
   status: "active", showOnHomepage: true, sortOrder: 0,
   seoTitle: "", seoDescription: ""
@@ -246,6 +247,7 @@ export const AdminClassesPage = () => {
             <Field title="Speaker"><input value={form.speaker} onChange={(e) => set("speaker", e.target.value)} className={input} placeholder="HG Radheshyam Das" /></Field>
             <Field title="Seats (0 = unlimited)"><input type="number" min="0" value={form.seats} onChange={(e) => set("seats", e.target.value)} className={input} /></Field>
             <Field title="Register button text"><input value={form.buttonText} onChange={(e) => set("buttonText", e.target.value)} className={input} placeholder="Register Now" /></Field>
+            <Field title="Video URL (YouTube or Livestream)" wide><input value={form.videoUrl || form.youtubeUrl || ""} onChange={(e) => { set("videoUrl", e.target.value); set("youtubeUrl", e.target.value); }} className={input} placeholder="e.g. http://www.youtube.com/watch?v=..." /></Field>
             <Field title="Short description (card)" wide><textarea rows="2" value={form.shortDescription} onChange={(e) => set("shortDescription", e.target.value)} className={input} /></Field>
             <Field title="Full description" wide><textarea rows="6" value={form.fullDescription} onChange={(e) => set("fullDescription", e.target.value)} className={input} placeholder="Blank lines separate paragraphs." /></Field>
           </div>

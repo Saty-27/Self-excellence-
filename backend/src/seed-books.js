@@ -10,14 +10,15 @@ const img = (id, w = 1200, h = 1600) =>
 const canonicalBooks = [
   {
     displayOrder: 1,
-    title: "Bhagavad Gita",
+    title: "Bhagavad Gita As It Is",
     slug: "bhagavad-gita",
-    subtitle: "As It Is — The Ultimate Guide to Spiritual Wisdom",
-    pricePerBook: 150,
-    mrp: 200,
-    shortDescription: "The timeless conversation between Krishna and Arjuna on duty, devotion and the self.",
+    subtitle: "With Original Sanskrit Text, Translation and Elaborate Purports",
+    authorOrTranslator: "His Divine Grace A.C. Bhaktivedanta Swami Prabhupada",
+    pricePerBook: 280,
+    mrp: 350,
+    shortDescription: "The timeless conversation between Krishna and Arjuna on duty, devotion and the self by A.C. Bhaktivedanta Swami Prabhupada.",
     fullDescription: `<p>The Bhagavad Gita is the essence of Vedic knowledge and one of the most important Upanishads in Vedic literature. Spoken by Lord Krishna to His intimate disciple Arjuna on the battlefield of Kurukshetra, it provides definitive guidance on the science of self-realisation.</p><p>Through clear explanations of karma-yoga, jnana-yoga, and bhakti-yoga, this sacred dialogue illuminates the nature of consciousness, the soul, the universe, and the Supreme Truth, providing practical principles for peaceful living and spiritual growth in everyday life.</p>`,
-    coverImage: img("photo-1544716278-ca5e3f4abd8c"),
+    coverImage: "/uploads/books/bhagavad-gita-as-it-is.png",
     language: "Hindi & English",
     binding: "Hardcover",
     allowBuy: true,
@@ -27,12 +28,13 @@ const canonicalBooks = [
     minDistributeQty: 10,
     maxDistributeQty: 100000,
     distributionPresets: [10, 50, 100, 250, 500, 600, 700, 1000],
-    gstPercent: 0,
+    gstPercent: 18,
     isActive: true,
     isFeatured: true,
     highlights: [
-      "Authentic verse translations and definitive commentary",
-      "Essential guide for yoga, karma and spiritual wisdom",
+      "Complete original Sanskrit text with Roman transliteration",
+      "Word-for-word English equivalents & lucid translation",
+      "Elaborate purports by the world's foremost Vedic scholar",
       "Ideal for personal study and auspicious gifting"
     ]
   },

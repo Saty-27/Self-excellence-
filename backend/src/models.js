@@ -459,6 +459,8 @@ const upcomingClassSchema = new Schema(
     speaker: String,
     shortDescription: String,
     fullDescription: String,
+    videoUrl: String,
+    youtubeUrl: String,
 
     /* ---- what the class actually involves ---- */
     whatToExpect: String,
