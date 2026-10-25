@@ -179,6 +179,44 @@ async function run() {
   );
   console.log(" -> Book:", nod.title, `₹${nod.pricePerBook} (GST: ${nod.gstPercent}%)`);
 
+  console.log("Upserting Beyond Birth & Death book...");
+  const bbd = await Book.findOneAndUpdate(
+    { slug: "beyond-birth-and-death" },
+    {
+      $set: {
+        title: "Beyond Birth & Death",
+        slug: "beyond-birth-and-death",
+        subtitle: "Transcendental Knowledge of Reincarnation and the Soul",
+        authorOrTranslator: "His Divine Grace A.C. Bhaktivedanta Swami Prabhupada",
+        pricePerBook: 45,
+        mrp: 60,
+        gstPercent: 18,
+        coverImage: "/uploads/books/beyond-birth-and-death.jpg",
+        language: "Hindi & English",
+        binding: "Pocket Paperback",
+        allowBuy: true,
+        allowDistribute: true,
+        minBuyQty: 1,
+        maxBuyQty: 1000,
+        minDistributeQty: 10,
+        maxDistributeQty: 100000,
+        distributionPresets: [10, 50, 100, 250, 500, 1000, 5000],
+        isActive: true,
+        displayOrder: 4,
+        shortDescription: "A concise, illuminating guide to the science of the soul, reincarnation, and how to transcend the cycle of repeated birth and death.",
+        fullDescription: `<p>Beyond Birth and Death offers clear, definitive answers to humanity's greatest mysteries: What happens to consciousness after bodily death? Is reincarnation real? How can the soul achieve eternal liberation?</p><p>Drawing from the timeless verses of the Bhagavad Gita and ancient Vedic wisdom, His Divine Grace A.C. Bhaktivedanta Swami Prabhupada reveals how by practicing simple, authentic bhakti-yoga meditation, anyone can awaken their eternal spiritual identity and transcend material suffering forever.</p>`,
+        highlights: [
+          "The definitive introductory guide to the science of reincarnation and the soul",
+          "Explains how the mind and desires shape our next destination",
+          "Practical instructions on meditation and awakening eternal spiritual consciousness",
+          "Direct insights drawn from the Bhagavad Gita"
+        ]
+      }
+    },
+    { upsert: true, new: true }
+  );
+  console.log(" -> Book:", bbd.title, `₹${bbd.pricePerBook} (GST: ${bbd.gstPercent}%)`);
+
   await mongoose.disconnect();
   console.log("Done successfully!");
 }
