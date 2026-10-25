@@ -7093,6 +7093,122 @@ const runMigration = async () => {
       }
     }
 
+    // Sync How To Improve Your Japa? course & lessons (Free)
+    const hayagrivaUser = await User.findOne({
+      $or: [{ name: /Hayagriva/i }, { role: "teacher" }, { role: "main_admin" }, { role: "admin" }]
+    }).catch(() => null);
+
+    const japaCourse = await Course.findOneAndUpdate(
+      { slug: "how-to-improve-your-japa" },
+      {
+        $set: {
+          title: "How To Improve Your Japa?",
+          slug: "how-to-improve-your-japa",
+          thumbnail: "/uploads/courses/how-to-improve-your-japa.jpg",
+          bannerImage: "/uploads/courses/how-to-improve-your-japa.jpg",
+          category: "Meditation & Sadhana",
+          level: "Beginner",
+          duration: "Self Paced",
+          priceType: "Free",
+          price: 0,
+          isFree: true,
+          enrollmentType: ["free"],
+          featured: true,
+          showOnHomepage: true,
+          status: "published",
+          isActive: true,
+          order: 3,
+          teacher: hayagrivaUser?._id,
+          primaryTeacherId: hayagrivaUser?._id,
+          createdBy: hayagrivaUser?._id,
+          shortDescription: "Practical techniques and spiritual focus to overcome distractions and deepen your daily chanting meditation by HG Hayagriva Charan Das.",
+          description: "Chanting the Holy Names (Maha-Mantra) is the foremost spiritual practice in Kali-yuga. Yet, many seekers struggle with wandering thoughts, drowsiness, and lack of taste in Japa.\n\nIn this focused guide, HG Hayagriva Charan Das (B.Tech From NIT Raipur) shares transformative, practical, and scripturally grounded methods to bring discipline, attentive listening, and heartfelt absorption into your daily Japa meditation.",
+          whatYouWillLearn: [
+            "Practical techniques for maintaining posture, alertness, and mind control during Japa",
+            "The science of attentive hearing (Sravanam) and purifying wandering thoughts",
+            "Understanding the offenses to avoid for rapid spiritual advancement",
+            "Developing consistency and genuine taste in chanting the Hare Krishna Maha-Mantra"
+          ]
+        }
+      },
+      { upsert: true, new: true }
+    ).catch(() => null);
+
+    if (japaCourse) {
+      const japaLessons = [
+        {
+          title: "How To Improve Your Japa? By HG Hayagriva Charan Das (B.Tech From NIT Raipur) | 20th March, 2026",
+          slug: "how-to-improve-your-japa-by-hg-hayagriva-charan-das",
+          order: 1,
+          sortOrder: 1,
+          isPreview: true,
+          youtubeUrl: "https://www.youtube.com/watch?v=Kmwm9UTqyRc",
+          videoUrl: "https://www.youtube.com/watch?v=Kmwm9UTqyRc",
+          description: "Lesson 1: Practical techniques and spiritual focus to overcome distractions and deepen your daily chanting meditation by HG Hayagriva Charan Das (B.Tech From NIT Raipur)."
+        }
+      ];
+
+      for (const ld of japaLessons) {
+        const lesson = await Lesson.findOneAndUpdate(
+          { course: japaCourse._id, slug: ld.slug },
+          {
+            $set: {
+              course: japaCourse._id,
+              title: ld.title,
+              slug: ld.slug,
+              description: ld.description,
+              videoType: "youtube",
+              youtubeUrl: ld.youtubeUrl,
+              videoUrl: ld.videoUrl,
+              thumbnail: "/uploads/courses/how-to-improve-your-japa.jpg",
+              order: ld.order,
+              sortOrder: ld.sortOrder,
+              isPreview: ld.isPreview,
+              status: "active",
+              publishStatus: "published",
+              commentsEnabled: true,
+              notesEnabled: true,
+              chatEnabled: true,
+              createdBy: hayagrivaUser?._id,
+              videoSettings: {
+                disableSeeking: false,
+                enableCompleteButton: true
+              }
+            }
+          },
+          { upsert: true, new: true }
+        ).catch(() => null);
+
+        if (lesson) {
+          await CourseContent.findOneAndUpdate(
+            { course: japaCourse._id, lesson: lesson._id },
+            {
+              $set: {
+                course: japaCourse._id,
+                lesson: lesson._id,
+                type: "video",
+                title: lesson.title,
+                slug: `${lesson.slug}-content`,
+                order: lesson.order,
+                isRequired: true,
+                isActive: true,
+                videoType: "youtube",
+                youtubeUrl: lesson.youtubeUrl,
+                videoUrl: lesson.videoUrl,
+                thumbnail: lesson.thumbnail,
+                videoSettings: {
+                  disableSeeking: false,
+                  enableCompleteButton: true,
+                  completionThreshold: 80
+                }
+              }
+            },
+            { upsert: true, new: true }
+          ).catch(() => null);
+        }
+      }
+    }
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
