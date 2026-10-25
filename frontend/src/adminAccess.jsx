@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Check, Clock, Eye, Loader2, Lock, Monitor, Plus, RotateCcw, Search,
+  Ban, Check, Clock, Edit2, Eye, EyeOff, Loader2, Lock, Monitor, Plus, RotateCcw, Search,
   Shield, Smartphone, Trash2, UserPlus, X
 } from "lucide-react";
 import { apiFetch } from "./api";
@@ -113,9 +113,31 @@ const StaffTab = ({ meta, notify }) => {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", role: "manager", sectionAccess: [] });
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [permissionsStaff, setPermissionsStaff] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    role: "manager",
+    status: "active",
+    sectionAccess: []
+  });
+  const [showCreatePass, setShowCreatePass] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    role: "manager",
+    status: "active",
+    sectionAccess: []
+  });
+  const [showEditPass, setShowEditPass] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -138,13 +160,30 @@ const StaffTab = ({ meta, notify }) => {
     (r) => user?.role === "main_admin" || r.level < (meta.myLevel ?? 0)
   );
 
-  const create = async () => {
+  const handleCreate = async () => {
+    if (!createForm.name.trim() || !createForm.email.trim()) {
+      notify("Full name and email are required.");
+      return;
+    }
+    if (!createForm.password || createForm.password.length < 6) {
+      notify("Password must be at least 6 characters long.");
+      return;
+    }
     setBusy(true);
     try {
-      const d = await apiFetch("/admin/staff", { method: "POST", body: form });
+      const d = await apiFetch("/admin/staff", { method: "POST", body: createForm });
       notify(d.message);
       setCreating(false);
-      setForm({ name: "", email: "", password: "", phone: "", role: "manager", sectionAccess: [] });
+      setCreateForm({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        role: "manager",
+        status: "active",
+        sectionAccess: []
+      });
+      setShowCreatePass(false);
       load();
     } catch (err) {
       notify(err.message);
@@ -153,21 +192,138 @@ const StaffTab = ({ meta, notify }) => {
     }
   };
 
-  const saveAccess = async () => {
+  const openEdit = (u) => {
+    setEditingStaff(u);
+    setEditForm({
+      name: u.name || "",
+      email: u.email || "",
+      password: "",
+      phone: u.phone || "",
+      role: u.role || "manager",
+      status: u.status || "active",
+      sectionAccess: Array.isArray(u.sectionAccess) ? [...u.sectionAccess] : []
+    });
+    setShowEditPass(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      notify("Full name and email are required.");
+      return;
+    }
+    if (editForm.password && editForm.password.trim().length < 6) {
+      notify("New password must be at least 6 characters long.");
+      return;
+    }
     setBusy(true);
     try {
-      const d = await apiFetch(`/admin/staff/${editing._id}/access`, {
+      const body = {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone,
+        role: editForm.role,
+        status: editForm.status,
+        sectionAccess: editForm.sectionAccess
+      };
+      if (editForm.password && editForm.password.trim()) {
+        body.password = editForm.password.trim();
+      }
+      const d = await apiFetch(`/admin/staff/${editingStaff._id}`, {
         method: "PUT",
-        body: { role: editing.role, sectionAccess: editing.sectionAccess, status: editing.status }
+        body
       });
       notify(d.message);
-      setEditing(null);
+      setEditingStaff(null);
       load();
     } catch (err) {
       notify(err.message);
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleToggleBlock = async (u) => {
+    const isBlocked = u.status === "blocked";
+    const actionText = isBlocked ? "unblock" : "block";
+    const confirmPrompt = isBlocked
+      ? `Restore admin panel access for ${u.name}?`
+      : `Are you sure you want to block ${u.name}? They will immediately lose access to the admin panel.`;
+
+    if (!window.confirm(confirmPrompt)) return;
+
+    setBusy(true);
+    try {
+      const nextStatus = isBlocked ? "active" : "blocked";
+      const d = await apiFetch(`/admin/staff/${u._id}/status`, {
+        method: "PATCH",
+        body: { status: nextStatus }
+      });
+      notify(d.message);
+      load();
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async (u) => {
+    const confirmPrompt = `Permanently delete staff member "${u.name}" (${u.email})?\n\nThis action cannot be undone and will immediately revoke all access.`;
+    if (!window.confirm(confirmPrompt)) return;
+
+    setBusy(true);
+    try {
+      const d = await apiFetch(`/admin/staff/${u._id}`, { method: "DELETE" });
+      notify(d.message);
+      load();
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openPermissions = (u) => {
+    setPermissionsStaff({
+      ...u,
+      sectionAccess: Array.isArray(u.sectionAccess) ? [...u.sectionAccess] : []
+    });
+  };
+
+  const handleSavePermissions = async () => {
+    setBusy(true);
+    try {
+      const d = await apiFetch(`/admin/staff/${permissionsStaff._id}/access`, {
+        method: "PUT",
+        body: {
+          role: permissionsStaff.role,
+          sectionAccess: permissionsStaff.sectionAccess,
+          status: permissionsStaff.status
+        }
+      });
+      notify(d.message);
+      setPermissionsStaff(null);
+      load();
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const grantAllSections = (currentRole, setter) => {
+    const all = (meta.sections || []).map((section) => ({
+      section,
+      view: true,
+      create: true,
+      edit: true,
+      canDelete: currentRole === "admin" || currentRole === "manager"
+    }));
+    setter((prev) => ({ ...prev, sectionAccess: all }));
+  };
+
+  const clearAllSections = (setter) => {
+    setter((prev) => ({ ...prev, sectionAccess: [] }));
   };
 
   return (
@@ -179,7 +335,22 @@ const StaffTab = ({ meta, notify }) => {
             {staff.length} account{staff.length === 1 ? "" : "s"} with admin panel access
           </p>
         </div>
-        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-black text-white">
+        <button
+          onClick={() => {
+            setCreateForm({
+              name: "",
+              email: "",
+              password: "",
+              phone: "",
+              role: "manager",
+              status: "active",
+              sectionAccess: []
+            });
+            setShowCreatePass(false);
+            setCreating(true);
+          }}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-black text-white shadow-md shadow-primary/20 transition hover:bg-primary/90"
+        >
           <UserPlus size={15} /> Add staff member
         </button>
       </div>
@@ -187,7 +358,7 @@ const StaffTab = ({ meta, notify }) => {
       {/* Role ladder */}
       <div className="mb-6 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
         {(meta.roles || []).map((r) => (
-          <div key={r.role} className="rounded-xl border border-black/5 bg-white p-3.5">
+          <div key={r.role} className="rounded-xl border border-black/5 bg-white p-3.5 shadow-sm">
             <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${ROLE_STYLE[r.role]}`}>
               {r.role.replace("_", " ")}
             </span>
@@ -196,127 +367,513 @@ const StaffTab = ({ meta, notify }) => {
         ))}
       </div>
 
+      {/* Staff Accounts Table */}
       <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[850px] text-left text-sm">
           <thead className="bg-ink text-white">
             <tr>
               <th className="px-4 py-3">Member</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Sections</th>
+              <th className="px-4 py-3">Account Status</th>
               <th className="px-4 py-3">Added by</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan="5" className="px-4 py-10 text-center text-muted">Loading staff...</td></tr>}
-            {!loading && staff.length === 0 && <tr><td colSpan="5" className="px-4 py-10 text-center text-muted">No staff accounts yet.</td></tr>}
-            {!loading && staff.map((u) => (
-              <tr key={u._id} className="border-t border-black/5 transition hover:bg-soft/20">
-                <td className="px-4 py-3">
-                  <span className="block font-black text-ink">{u.name}</span>
-                  <span className="block text-xs text-muted">{u.email}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${ROLE_STYLE[u.role]}`}>
-                    {u.role.replace("_", " ")}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted">
-                  {u.role === "main_admin"
-                    ? "Everything"
-                    : (u.sectionAccess || []).length
-                      ? `${u.sectionAccess.length} section${u.sectionAccess.length === 1 ? "" : "s"}`
-                      : "None assigned"}
-                </td>
-                <td className="px-4 py-3 text-xs text-muted">{u.managedBy?.name || "—"}</td>
-                <td className="px-4 py-3 text-right">
-                  {u.manageable ? (
-                    <button onClick={() => setEditing({ ...u, sectionAccess: u.sectionAccess || [] })} className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-black text-ink transition hover:border-primary hover:text-primary">
-                      Permissions
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-muted"><Lock size={12} /> Locked</span>
-                  )}
+            {loading && (
+              <tr>
+                <td colSpan="6" className="px-4 py-10 text-center text-muted">
+                  <div className="inline-flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-primary" /> Loading staff accounts...
+                  </div>
                 </td>
               </tr>
-            ))}
+            )}
+            {!loading && staff.length === 0 && (
+              <tr>
+                <td colSpan="6" className="px-4 py-10 text-center text-muted">No staff accounts found.</td>
+              </tr>
+            )}
+            {!loading && staff.map((u) => {
+              const isLocked = !u.manageable || u.role === "main_admin";
+              const isBlocked = u.status === "blocked";
+
+              return (
+                <tr key={u._id} className="border-t border-black/5 transition hover:bg-soft/30">
+                  <td className="px-4 py-3">
+                    <span className="block font-black text-ink">{u.name}</span>
+                    <span className="block text-xs text-muted font-medium">{u.email}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${ROLE_STYLE[u.role]}`}>
+                      {u.role.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted">
+                    {u.role === "main_admin"
+                      ? "Everything"
+                      : (u.sectionAccess || []).length
+                        ? `${u.sectionAccess.length} section${u.sectionAccess.length === 1 ? "" : "s"}`
+                        : "None assigned"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isBlocked ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-rose-800">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-pulse" />
+                        Blocked
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-800">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                        Active
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted">{u.managedBy?.name || "—"}</td>
+                  <td className="px-4 py-3 text-right">
+                    {isLocked ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-soft/60 px-3 py-1.5 text-xs font-black text-muted" title="Main Admin account is permanently locked from modification">
+                        <Lock size={12} /> Locked
+                      </span>
+                    ) : (
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        {/* Edit Staff button */}
+                        <button
+                          onClick={() => openEdit(u)}
+                          title="Edit staff details and reset password"
+                          className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-bold text-ink transition hover:border-primary hover:text-primary"
+                        >
+                          <Edit2 size={12} /> Edit
+                        </button>
+
+                        {/* Permissions button */}
+                        <button
+                          onClick={() => openPermissions(u)}
+                          title="Manage section-level permissions"
+                          className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-bold text-ink transition hover:border-primary hover:text-primary"
+                        >
+                          <Shield size={12} /> Permissions
+                        </button>
+
+                        {/* Block / Unblock action */}
+                        {isBlocked ? (
+                          <button
+                            onClick={() => handleToggleBlock(u)}
+                            title="Unblock staff account"
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            <Check size={12} /> Unblock
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleBlock(u)}
+                            title="Block staff account"
+                            className="inline-flex items-center gap-1 rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                          >
+                            <Ban size={12} /> Block
+                          </button>
+                        )}
+
+                        {/* Delete action */}
+                        <button
+                          onClick={() => handleDelete(u)}
+                          title={`Permanently delete ${u.name}`}
+                          className="inline-flex items-center justify-center rounded-full border border-black/10 p-1.5 text-muted transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+                          aria-label={`Delete ${u.name}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Create */}
+      {/* CREATE STAFF MODAL */}
       {creating && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onClick={() => setCreating(false)}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xl font-black text-ink">Add staff member</h3>
-              <button onClick={() => setCreating(false)} className="rounded-full p-2 text-muted hover:bg-soft" aria-label="Close"><X size={18} /></button>
+              <div>
+                <h3 className="text-xl font-black text-ink">Add staff member</h3>
+                <p className="text-xs text-muted">Create a new staff account with assigned role and permissions.</p>
+              </div>
+              <button onClick={() => setCreating(false)} className="rounded-full p-2 text-muted hover:bg-soft" aria-label="Close">
+                <X size={18} />
+              </button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1.5"><span className={label}>Name</span><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} /></label>
-              <label className="grid gap-1.5"><span className={label}>Email</span><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} /></label>
-              <label className="grid gap-1.5"><span className={label}>Temporary password</span><input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={input} placeholder="At least 6 characters" /></label>
-              <label className="grid gap-1.5"><span className={label}>Phone</span><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={input} /></label>
-              <label className="grid gap-1.5 sm:col-span-2">
-                <span className={label}>Role</span>
-                <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={input}>
-                  {assignableRoles.map((r) => <option key={r.role} value={r.role}>{r.role.replace("_", " ")}</option>)}
+              <label className="grid gap-1.5">
+                <span className={label}>Full Name *</span>
+                <input
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className={input}
+                  placeholder="e.g. Radhika Devi"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Email / User ID *</span>
+                <input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  className={input}
+                  placeholder="e.g. radhika@iskconselfexcellence.online"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Password *</span>
+                <div className="relative">
+                  <input
+                    type={showCreatePass ? "text" : "password"}
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    className={`${input} pr-10`}
+                    placeholder="Min. 6 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePass(!showCreatePass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    tabIndex={-1}
+                  >
+                    {showCreatePass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Phone (Optional)</span>
+                <input
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                  className={input}
+                  placeholder="e.g. +91 9876543210"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Role *</span>
+                <select
+                  value={createForm.role}
+                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                  className={input}
+                >
+                  {assignableRoles.map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.role.replace("_", " ")}
+                    </option>
+                  ))}
                 </select>
-                <span className="text-[11px] text-muted">{ROLE_BLURB[form.role]}</span>
+                <span className="text-[11px] text-muted">{ROLE_BLURB[createForm.role]}</span>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Account Status *</span>
+                <select
+                  value={createForm.status}
+                  onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                  className={input}
+                >
+                  <option value="active">Active (Full access)</option>
+                  <option value="blocked">Blocked (Login prohibited)</option>
+                </select>
+                <span className="text-[11px] text-muted">
+                  {createForm.status === "blocked" ? "Account will be created in blocked state." : "Staff member can log in immediately."}
+                </span>
               </label>
             </div>
 
-            <p className={`${label} mt-5 mb-2`}>Sections this person can open</p>
-            <PermissionMatrix sections={meta.sections || []} value={form.sectionAccess} onChange={(v) => setForm({ ...form, sectionAccess: v })} />
+            <div className="mt-5 mb-2 flex items-center justify-between">
+              <div>
+                <p className={label}>Assigned Sections & Permissions</p>
+                <p className="text-[11px] text-muted">Choose what this staff member can view, create, edit, or delete.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => grantAllSections(createForm.role, setCreateForm)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-ink hover:bg-soft"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearAllSections(setCreateForm)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-muted hover:text-ink hover:bg-soft"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
 
-            <div className="mt-5 flex gap-3">
-              <button onClick={create} disabled={busy || !form.name || !form.email || !form.password} className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white disabled:opacity-50">
-                {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Create account
+            <PermissionMatrix
+              sections={meta.sections || []}
+              value={createForm.sectionAccess}
+              onChange={(v) => setCreateForm({ ...createForm, sectionAccess: v })}
+            />
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleCreate}
+                disabled={busy || !createForm.name || !createForm.email || !createForm.password}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Create account
               </button>
-              <button onClick={() => setCreating(false)} className="rounded-full border border-black/10 px-6 py-3 text-sm font-black text-ink">Cancel</button>
+              <button
+                onClick={() => setCreating(false)}
+                className="rounded-full border border-black/10 px-6 py-3 text-sm font-black text-ink hover:bg-soft"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Edit permissions */}
-      {editing && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onClick={() => setEditing(null)}>
+      {/* EDIT STAFF MODAL */}
+      {editingStaff && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onClick={() => setEditingStaff(null)}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-ink">{editing.name}</h3>
-                <p className="text-xs text-muted">{editing.email}</p>
+                <h3 className="text-xl font-black text-ink">Edit Staff: {editingStaff.name}</h3>
+                <p className="text-xs text-muted">Update profile, account status, permissions, or reset password.</p>
               </div>
-              <button onClick={() => setEditing(null)} className="rounded-full p-2 text-muted hover:bg-soft" aria-label="Close"><X size={18} /></button>
+              <button onClick={() => setEditingStaff(null)} className="rounded-full p-2 text-muted hover:bg-soft" aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1.5">
+                <span className={label}>Full Name *</span>
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className={input}
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Email / User ID *</span>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className={input}
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Reset Password (Optional)</span>
+                <div className="relative">
+                  <input
+                    type={showEditPass ? "text" : "password"}
+                    value={editForm.password}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className={`${input} pr-10`}
+                    placeholder="Leave blank to keep unchanged"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPass(!showEditPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                    tabIndex={-1}
+                  >
+                    {showEditPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-muted font-medium">
+                  🔒 Leave blank to keep current password. Enter 6+ characters only to reset.
+                </span>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Phone</span>
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className={input}
+                  placeholder="e.g. +91 9876543210"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Role *</span>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  className={input}
+                >
+                  {assignableRoles.map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.role.replace("_", " ")}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] text-muted">{ROLE_BLURB[editForm.role]}</span>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className={label}>Account Status *</span>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className={input}
+                >
+                  <option value="active">Active</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+                <span className="text-[11px] text-muted">
+                  {editForm.status === "blocked" ? "⚠️ Blocked staff cannot log in or access admin routes." : "Staff member has regular access."}
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-5 mb-2 flex items-center justify-between">
+              <div>
+                <p className={label}>Assigned Sections & Permissions</p>
+                <p className="text-[11px] text-muted">Configure granular permissions for this account.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => grantAllSections(editForm.role, setEditForm)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-ink hover:bg-soft"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearAllSections(setEditForm)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-muted hover:text-ink hover:bg-soft"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <PermissionMatrix
+              sections={meta.sections || []}
+              value={editForm.sectionAccess}
+              onChange={(v) => setEditForm({ ...editForm, sectionAccess: v })}
+            />
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleSaveEdit}
+                disabled={busy || !editForm.name || !editForm.email}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save changes
+              </button>
+              <button
+                onClick={() => setEditingStaff(null)}
+                className="rounded-full border border-black/10 px-6 py-3 text-sm font-black text-ink hover:bg-soft"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK PERMISSIONS MODAL */}
+      {permissionsStaff && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" onClick={() => setPermissionsStaff(null)}>
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-ink">Permissions: {permissionsStaff.name}</h3>
+                <p className="text-xs text-muted">{permissionsStaff.email}</p>
+              </div>
+              <button onClick={() => setPermissionsStaff(null)} className="rounded-full p-2 text-muted hover:bg-soft" aria-label="Close">
+                <X size={18} />
+              </button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1.5">
                 <span className={label}>Role</span>
-                <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value })} className={input}>
-                  {assignableRoles.map((r) => <option key={r.role} value={r.role}>{r.role.replace("_", " ")}</option>)}
+                <select
+                  value={permissionsStaff.role}
+                  onChange={(e) => setPermissionsStaff({ ...permissionsStaff, role: e.target.value })}
+                  className={input}
+                >
+                  {assignableRoles.map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.role.replace("_", " ")}
+                    </option>
+                  ))}
                 </select>
               </label>
+
               <label className="grid gap-1.5">
                 <span className={label}>Status</span>
-                <select value={editing.status || "active"} onChange={(e) => setEditing({ ...editing, status: e.target.value })} className={input}>
+                <select
+                  value={permissionsStaff.status || "active"}
+                  onChange={(e) => setPermissionsStaff({ ...permissionsStaff, status: e.target.value })}
+                  className={input}
+                >
                   <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
                   <option value="blocked">Blocked</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </label>
             </div>
 
-            <p className={`${label} mt-5 mb-2`}>Sections</p>
-            <PermissionMatrix sections={meta.sections || []} value={editing.sectionAccess} onChange={(v) => setEditing({ ...editing, sectionAccess: v })} />
+            <div className="mt-5 mb-2 flex items-center justify-between">
+              <p className={label}>Sections</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => grantAllSections(permissionsStaff.role, setPermissionsStaff)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-ink hover:bg-soft"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearAllSections(setPermissionsStaff)}
+                  className="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-bold text-muted hover:text-ink hover:bg-soft"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
 
-            <div className="mt-5 flex gap-3">
-              <button onClick={saveAccess} disabled={busy} className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white disabled:opacity-50">
-                {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save permissions
+            <PermissionMatrix
+              sections={meta.sections || []}
+              value={permissionsStaff.sectionAccess || []}
+              onChange={(v) => setPermissionsStaff({ ...permissionsStaff, sectionAccess: v })}
+            />
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleSavePermissions}
+                disabled={busy}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save permissions
               </button>
-              <button onClick={() => setEditing(null)} className="rounded-full border border-black/10 px-6 py-3 text-sm font-black text-ink">Cancel</button>
+              <button
+                onClick={() => setPermissionsStaff(null)}
+                className="rounded-full border border-black/10 px-6 py-3 text-sm font-black text-ink hover:bg-soft"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

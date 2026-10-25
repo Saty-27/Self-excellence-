@@ -660,6 +660,22 @@ const contactMessageSchema = new Schema(
   { timestamps: true }
 );
 
+const contactSettingSchema = new Schema(
+  {
+    singletonKey: { type: String, default: "contact", unique: true },
+    title: { type: String, default: "Contact Information" },
+    address: { type: String, default: "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai" },
+    phone: { type: String, default: "+91 22 2620 6860" },
+    email: { type: String, default: "selfexcellence@iskconjuhu.in" },
+    whatsappNumber: { type: String, default: "8928337055" },
+    whatsappMessage: { type: String, default: "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses." },
+    mapUrl: { type: String, default: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed" },
+    bannerTitle: { type: String, default: "Contact Us" },
+    bannerSubtitle: { type: String, default: "Questions about classes, courses, enrollment, or volunteering? Reach out." }
+  },
+  { timestamps: true }
+);
+
 const footerSettingSchema = new Schema(
   {
     singletonKey: { type: String, default: "footer", unique: true },
@@ -1459,6 +1475,7 @@ export const ImageGallery = make("ImageGallery", imageGallerySchema);
 export const VideoGallery = make("VideoGallery", videoGallerySchema);
 export const Subscriber = make("Subscriber", subscriberSchema);
 export const ContactMessage = make("ContactMessage", contactMessageSchema);
+export const ContactSetting = make("ContactSetting", contactSettingSchema);
 export const FooterSetting = make("FooterSetting", footerSettingSchema);
 export const SiteSetting = make("SiteSetting", siteSettingSchema);
 export const LegalPage = make("LegalPage", legalPageSchema);
@@ -1516,6 +1533,7 @@ export const modelRegistry = {
   "gallery-videos": VideoGallery,
   subscribers: Subscriber,
   "contact-messages": ContactMessage,
+  "contact-settings": ContactSetting,
   "legal-pages": LegalPage,
   benefits: Benefit,
   testimonials: Testimonial,

@@ -4,6 +4,7 @@ import {
   AdminBannersPage,
   AdminChatPage,
   AdminCommentsPage,
+  AdminContactPage,
   AdminCourseLessonsPage,
   AdminLessonContentPage,
   AdminQuestionBankPage,
@@ -86,7 +87,6 @@ const adminRoutes = [
   ["media/images", "media/images"],
   ["media/videos", "media/videos"],
   ["subscribers", "subscribers"],
-  ["contact-messages", "contact-messages"],
   ["legal-pages", "legal-pages"],
   ["booking-taxes", "booking-taxes"]
 ];
@@ -266,6 +266,9 @@ const App = () => {
         <Route path="password-reset-requests" element={<AdminResetRequestsPage />} />
         <Route path="comments" element={<AdminCommentsPage />} />
         <Route path="chat" element={<AdminChatPage />} />
+        <Route path="contact" element={<AdminContactPage />} />
+        <Route path="contact-messages" element={<AdminContactPage />} />
+        <Route path="contact-settings" element={<AdminContactPage />} />
         <Route path="course-requests" element={<AdminCourseRequestsPage />} />
         <Route path="upcoming-classes" element={<AdminClassesPage />} />
         <Route path="pilgrimages" element={<AdminTripsPage />} />

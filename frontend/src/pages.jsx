@@ -35,7 +35,10 @@ import {
   Unlock,
   Paperclip,
   ChevronLeft,
-  Calendar
+  Calendar,
+  MapPin,
+  Phone,
+  RotateCcw
 } from "lucide-react";
 import {
   BlogCard,
@@ -1856,27 +1859,160 @@ export const AboutPage = () => {
   );
 };
 
+export const normalizeMapEmbedUrl = (raw) => {
+  if (!raw || !String(raw).trim()) {
+    return "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed";
+  }
+  const str = String(raw).trim();
+  const iframeMatch = str.match(/src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    return iframeMatch[1];
+  }
+  if (str.includes("output=embed") || str.includes("/maps/embed")) {
+    return str;
+  }
+  if (str.startsWith("http://") || str.startsWith("https://")) {
+    if (str.includes("google.com/maps")) {
+      return `${str}${str.includes("?") ? "&" : "?"}output=embed`;
+    }
+    return str;
+  }
+  return `https://www.google.com/maps?q=${encodeURIComponent(str)}&output=embed`;
+};
+
 export const ContactPage = () => {
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState({
+    title: "Contact Information",
+    address: "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai",
+    phone: "+91 22 2620 6860",
+    email: "selfexcellence@iskconjuhu.in",
+    whatsappNumber: "8928337055",
+    whatsappMessage: "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses.",
+    mapUrl: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed",
+    bannerTitle: "Contact Us",
+    bannerSubtitle: "Questions about classes, courses, enrollment, or volunteering? Reach out."
+  });
+
+  useEffect(() => {
+    apiFetch("/contact-settings")
+      .then((res) => {
+        if (res.settings) setSettings((prev) => ({ ...prev, ...res.settings }));
+      })
+      .catch(() => {});
+  }, []);
+
   const submit = async (event) => {
     event.preventDefault();
+    setBusy(true);
     try {
       await apiFetch("/contact", { method: "POST", body: form });
-      setNotice("Message sent successfully.");
+      setNotice("Hare Krishna! Message sent successfully. Our devotees will contact you soon.");
       setForm({ name: "", email: "", phone: "", subject: "", message: "" });
     } catch (error) {
       setNotice(error.message);
+    } finally {
+      setBusy(false);
     }
   };
+
+  const mapSrc = normalizeMapEmbedUrl(settings.mapUrl);
+  const cleanWaNum = (settings.whatsappNumber || "8928337055").replace(/[^0-9]/g, "");
+  const waTarget = cleanWaNum.length === 10 ? `91${cleanWaNum}` : cleanWaNum;
+
   return (
     <>
-      <SEO title="Contact ISKCON Juhu Self-Excellence" />
-      <PageBanner title="Contact Us" subtitle="Questions about classes, courses, enrollment, or volunteering? Reach out." image={images.temple} />
-      <section className="section-pad bg-soft"><div className="container-pad grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-2xl bg-white p-8 shadow-sm"><h2 className="text-2xl font-black">Contact Information</h2><div className="mt-6 grid gap-4 text-muted"><p>ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai</p><p>+91 22 2620 6860</p><p>selfexcellence@iskconjuhu.in</p></div><iframe title="ISKCON Juhu map" className="mt-8 h-64 w-full rounded-2xl" loading="lazy" src="https://www.google.com/maps?q=ISKCON%20Juhu&output=embed" /></div>
-        <form onSubmit={submit} className="rounded-2xl bg-white p-8 shadow-sm"><h2 className="text-2xl font-black">Send Message</h2><div className="mt-6 grid gap-4 md:grid-cols-2">{["name", "email", "phone", "subject"].map((field) => <input key={field} value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} required={field === "name" || field === "email"} type={field === "email" ? "email" : "text"} placeholder={field[0].toUpperCase() + field.slice(1)} className="rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-primary" />)}<textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required placeholder="Message" rows="6" className="rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-primary md:col-span-2" /></div><button className="mt-5 rounded-full bg-primary px-7 py-3 text-sm font-black text-white">Submit</button>{notice && <p className="mt-4 text-sm font-bold text-primary">{notice}</p>}</form>
-      </div></section>
+      <SEO title={`${settings.bannerTitle || "Contact Us"} - ISKCON Juhu Self-Excellence`} />
+      <PageBanner
+        title={settings.bannerTitle || "Contact Us"}
+        subtitle={settings.bannerSubtitle || "Questions about classes, courses, enrollment, or volunteering? Reach out."}
+        image={images.temple}
+      />
+      <section className="section-pad bg-soft">
+        <div className="container-pad grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+          {/* Dynamic Contact Information & Map Card */}
+          <div className="rounded-2xl bg-white p-8 shadow-sm">
+            <h2 className="text-2xl font-black text-ink">{settings.title || "Contact Information"}</h2>
+            <div className="mt-6 grid gap-4 text-muted text-sm sm:text-base leading-relaxed">
+              <div className="flex items-start gap-3">
+                <MapPin size={20} className="text-primary shrink-0 mt-0.5" />
+                <p className="whitespace-pre-line text-ink font-medium">{settings.address || "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai"}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Phone size={18} className="text-primary shrink-0" />
+                <a href={`tel:${settings.phone || "+912226206860"}`} className="text-ink font-bold hover:text-primary hover:underline transition">
+                  {settings.phone || "+91 22 2620 6860"}
+                </a>
+              </div>
+              <div className="flex items-center gap-3">
+                <Mail size={18} className="text-primary shrink-0" />
+                <a href={`mailto:${settings.email || "selfexcellence@iskconjuhu.in"}`} className="text-ink font-bold hover:text-primary hover:underline transition">
+                  {settings.email || "selfexcellence@iskconjuhu.in"}
+                </a>
+              </div>
+              {settings.whatsappNumber && (
+                <div className="flex items-center gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#25D366] text-white shrink-0">
+                    <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.587 1.771.884 2.791.885h.005c3.181 0 5.767-2.586 5.767-5.767.001-3.18-2.585-5.77-5.766-5.77zm3.364 8.163c-.144.405-.837.774-1.17.824-.312.045-.694.06-2.001-.482-1.637-.678-2.684-2.336-2.766-2.445-.081-.11-.663-.883-.663-1.684 0-.802.42-1.196.569-1.359.149-.163.325-.203.433-.203.11 0 .217.002.312.007.1.006.234-.038.366.279.136.326.463 1.13.504 1.212.041.082.068.177.014.284-.055.109-.082.177-.163.272-.082.096-.172.214-.246.287-.082.082-.167.172-.072.335.095.163.424.7.91 1.133.627.558 1.155.73 1.318.812.163.082.259.068.354-.041.096-.11.408-.476.517-.639.109-.163.218-.136.367-.082.149.055.952.449 1.115.531.163.082.272.122.312.19.041.068.041.394-.103.799zm-3.364-10.335c-5.514 0-10 4.486-10 10 0 1.956.564 3.784 1.542 5.335l-1.637 5.978 6.137-1.61c1.503.909 3.255 1.433 5.127 1.433h.005c5.514 0 10-4.486 10-10 0-5.514-4.486-10-10-10zm0 18.25c-1.696 0-3.313-.497-4.686-1.364l-.336-.212-3.468.91.925-3.379-.232-.37c-.958-1.528-1.467-3.298-1.467-5.115 0-4.549 3.701-8.25 8.25-8.25 4.549 0 8.25 3.701 8.25 8.25 0 4.549-3.701 8.25-8.25 8.25z" />
+                    </svg>
+                  </span>
+                  <a
+                    href={`https://wa.me/${waTarget}?text=${encodeURIComponent(settings.whatsappMessage || "Hare Krishna!")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#128C7E] font-bold hover:underline"
+                  >
+                    +{settings.whatsappNumber} (WhatsApp)
+                  </a>
+                </div>
+              )}
+            </div>
+            {/* Dynamic Map */}
+            <iframe
+              title="ISKCON Juhu map"
+              className="mt-8 h-64 w-full rounded-2xl border border-black/5 shadow-inner"
+              loading="lazy"
+              src={mapSrc}
+            />
+          </div>
+
+          {/* Send Message Form */}
+          <form onSubmit={submit} className="rounded-2xl bg-white p-8 shadow-sm">
+            <h2 className="text-2xl font-black text-ink">Send Message</h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {["name", "email", "phone", "subject"].map((field) => (
+                <input
+                  key={field}
+                  value={form[field]}
+                  onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                  required={field === "name" || field === "email"}
+                  type={field === "email" ? "email" : field === "phone" ? "tel" : "text"}
+                  placeholder={field === "phone" ? "Phone Number" : field[0].toUpperCase() + field.slice(1)}
+                  className="rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-primary"
+                />
+              ))}
+              <textarea
+                value={form.message}
+                onChange={(e) => setForm({ ...form, message: e.target.value })}
+                required
+                placeholder="Message"
+                rows="6"
+                className="rounded-xl border border-black/10 px-4 py-3 outline-none focus:border-primary md:col-span-2"
+              />
+            </div>
+            <button
+              disabled={busy}
+              className="mt-5 rounded-full bg-primary px-7 py-3 text-sm font-black text-white shadow-md transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              {busy ? "Sending..." : "Submit"}
+            </button>
+            {notice && <p className="mt-4 text-sm font-bold text-primary">{notice}</p>}
+          </form>
+        </div>
+      </section>
     </>
   );
 };
@@ -6728,6 +6864,448 @@ export const AdminSettingsPage = ({ type }) => {
         </div>
       )}
       {notice && <p className="mt-3 text-sm font-bold text-primary">{notice}</p>}
+    </div>
+  );
+};
+
+export const AdminContactPage = () => {
+  const [activeTab, setActiveTab] = useState("info");
+  const [settings, setSettings] = useState({
+    title: "Contact Information",
+    address: "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai",
+    phone: "+91 22 2620 6860",
+    email: "selfexcellence@iskconjuhu.in",
+    whatsappNumber: "8928337055",
+    whatsappMessage: "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses.",
+    mapUrl: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed",
+    bannerTitle: "Contact Us",
+    bannerSubtitle: "Questions about classes, courses, enrollment, or volunteering? Reach out."
+  });
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const [messages, setMessages] = useState([]);
+  const [search, setSearch] = useState("");
+  const [viewingMessage, setViewingMessage] = useState(null);
+
+  const loadSettings = async () => {
+    try {
+      const res = await apiFetch("/admin/contact-settings");
+      if (res.settings) setSettings(res.settings);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const q = search ? `?search=${encodeURIComponent(search)}` : "";
+      const res = await apiFetch(`/admin/contact-messages${q}`);
+      setMessages(res.items || []);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+    loadMessages();
+  }, []);
+
+  const handleSaveSettings = async (e) => {
+    e?.preventDefault();
+    setBusy(true);
+    try {
+      const res = await apiFetch("/admin/contact-settings", {
+        method: "PUT",
+        body: settings
+      });
+      if (res.settings) setSettings(res.settings);
+      setNotice("Contact details and map updated successfully!");
+      setTimeout(() => setNotice(""), 5000);
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetMap = () => {
+    setSettings((prev) => ({
+      ...prev,
+      mapUrl: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed"
+    }));
+  };
+
+  const handleDeleteMessage = async (id) => {
+    if (!confirm("Delete this inquiry?")) return;
+    try {
+      await apiFetch(`/admin/contact-messages/${id}`, { method: "DELETE" });
+      loadMessages();
+    } catch (err) {
+      setNotice(err.message);
+    }
+  };
+
+  const liveMapSrc = normalizeMapEmbedUrl(settings.mapUrl);
+
+  return (
+    <div>
+      <SEO title="Contact & Inquiries - Admin" />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-black text-ink">Contact & Inquiries</h1>
+          <p className="mt-1 text-xs text-muted">
+            Manage contact information, interactive Google map, and visitor inquiries.
+          </p>
+        </div>
+        <a
+          href="/contact"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-bold text-ink shadow-sm transition hover:border-primary hover:text-primary"
+        >
+          View Live Contact Page ↗
+        </a>
+      </div>
+
+      {notice && (
+        <div className="mb-6 rounded-2xl bg-primary/10 px-5 py-3.5 text-sm font-bold text-primary flex items-center justify-between">
+          <span>{notice}</span>
+          <button onClick={() => setNotice("")}><X size={16} /></button>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-6 flex gap-2 rounded-full bg-soft p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("info")}
+          className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-black transition ${
+            activeTab === "info" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
+          }`}
+        >
+          <MapPin size={14} /> Contact Details & Map
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("messages");
+            loadMessages();
+          }}
+          className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-black transition ${
+            activeTab === "messages" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
+          }`}
+        >
+          <MessageSquare size={14} /> Inquiries Inbox ({messages.length})
+        </button>
+      </div>
+
+      {activeTab === "info" ? (
+        <form onSubmit={handleSaveSettings} className="grid gap-6">
+          {/* Section 1: Contact Information (Context Section) */}
+          <div className="rounded-2xl border border-black/5 bg-white p-7 shadow-sm">
+            <h2 className="text-lg font-black text-ink mb-1">Contact Information (Context Section)</h2>
+            <p className="text-xs text-muted mb-5">
+              These details are displayed in the Contact Information box on the public contact page and synced to the footer.
+            </p>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Box Title</label>
+                <input
+                  type="text"
+                  value={settings.title || ""}
+                  onChange={(e) => setSettings({ ...settings, title: e.target.value })}
+                  placeholder="Contact Information"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Temple / Office Address</label>
+                <textarea
+                  rows={2}
+                  value={settings.address || ""}
+                  onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                  placeholder="e.g. ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Official Phone Number</label>
+                <input
+                  type="text"
+                  value={settings.phone || ""}
+                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                  placeholder="+91 22 2620 6860"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Official Email Address</label>
+                <input
+                  type="email"
+                  value={settings.email || ""}
+                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                  placeholder="selfexcellence@iskconjuhu.in"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">WhatsApp Business Number</label>
+                <input
+                  type="text"
+                  value={settings.whatsappNumber || ""}
+                  onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
+                  placeholder="8928337055"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+                <span className="text-[11px] text-muted">Used by the Floating WhatsApp button and public contact card.</span>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">WhatsApp Pre-filled Message</label>
+                <input
+                  type="text"
+                  value={settings.whatsappMessage || ""}
+                  onChange={(e) => setSettings({ ...settings, whatsappMessage: e.target.value })}
+                  placeholder="Hare Krishna! I would like to know more about ISKCON Self-Excellence courses."
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Content Data / Google Map */}
+          <div className="rounded-2xl border border-black/5 bg-white p-7 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+              <h2 className="text-lg font-black text-ink">Content Data: Google Map Location</h2>
+              <button
+                type="button"
+                onClick={handleResetMap}
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-muted hover:text-ink hover:bg-soft"
+              >
+                <RotateCcw size={13} /> Reset to Default ISKCON Juhu Map
+              </button>
+            </div>
+            <p className="text-xs text-muted mb-5">
+              Paste any Google Maps embed link, location search query, or full &lt;iframe&gt; embed code. The system will automatically parse and embed it.
+            </p>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Map URL or &lt;iframe&gt; Embed Tag</label>
+                <textarea
+                  rows={5}
+                  value={settings.mapUrl || ""}
+                  onChange={(e) => setSettings({ ...settings, mapUrl: e.target.value })}
+                  placeholder="https://www.google.com/maps?q=ISKCON%20Juhu&output=embed or <iframe src='...'></iframe>"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 font-mono text-xs outline-none focus:border-primary"
+                />
+                <div className="mt-2 text-[11px] text-muted space-y-1">
+                  <p>💡 <b>Quick Option 1:</b> Just type location name (e.g. <code className="bg-soft px-1 rounded">ISKCON Juhu, Mumbai</code>).</p>
+                  <p>💡 <b>Quick Option 2:</b> In Google Maps, click <b>Share &gt; Embed a map</b>, copy the HTML, and paste here.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Live Map Preview</label>
+                <div className="overflow-hidden rounded-2xl border border-black/10 bg-soft shadow-inner">
+                  <iframe
+                    title="Map Preview"
+                    src={liveMapSrc}
+                    className="h-48 w-full rounded-2xl"
+                    loading="lazy"
+                  />
+                </div>
+                <span className="mt-1 block text-right text-[11px] text-muted">Preview updates as you type.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Page Banner / Header */}
+          <div className="rounded-2xl border border-black/5 bg-white p-7 shadow-sm">
+            <h2 className="text-lg font-black text-ink mb-1">Page Header & Subtitle</h2>
+            <p className="text-xs text-muted mb-5">Customize the public title and intro paragraph on the /contact page.</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Banner Title</label>
+                <input
+                  type="text"
+                  value={settings.bannerTitle || ""}
+                  onChange={(e) => setSettings({ ...settings, bannerTitle: e.target.value })}
+                  placeholder="Contact Us"
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-black uppercase text-muted">Banner Subtitle</label>
+                <input
+                  type="text"
+                  value={settings.bannerSubtitle || ""}
+                  onChange={(e) => setSettings({ ...settings, bannerSubtitle: e.target.value })}
+                  placeholder="Questions about classes, courses, enrollment, or volunteering? Reach out."
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-sm font-black text-white shadow-lg shadow-primary/25 transition hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Save size={16} /> {busy ? "Saving..." : "Save Contact & Map Settings"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        /* Section: Inquiries Inbox */
+        <div className="grid gap-6">
+          <div className="flex items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-sm border border-black/5">
+            <div className="relative flex-1 max-w-md">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search messages by name or email..."
+                className="w-full rounded-xl border border-black/10 py-2.5 pl-10 pr-4 text-xs outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              onClick={loadMessages}
+              className="rounded-xl bg-ink px-4 py-2.5 text-xs font-bold text-white transition hover:bg-ink/90"
+            >
+              Filter
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-ink text-white">
+                <tr>
+                  <th className="px-4 py-3">Sender Details</th>
+                  <th className="px-4 py-3">Inquiry Details</th>
+                  <th className="px-4 py-3">Message Excerpt</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {messages.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-4 py-10 text-center text-muted">
+                      No contact inquiries received yet.
+                    </td>
+                  </tr>
+                ) : (
+                  messages.map((m) => (
+                    <tr key={m._id} className="border-t border-black/5 transition hover:bg-soft/30">
+                      <td className="px-4 py-3">
+                        <span className="block font-black text-ink">{m.name}</span>
+                        <span className="block text-xs text-muted">{m.email}</span>
+                        {m.phone && <span className="block text-xs font-semibold text-primary">{m.phone}</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.classTitle ? (
+                          <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-black uppercase text-primary">
+                            Class: {m.classTitle}
+                          </span>
+                        ) : (
+                          <span className="inline-block rounded-full bg-soft px-2.5 py-0.5 text-[10px] font-bold text-muted">
+                            General Inquiry
+                          </span>
+                        )}
+                        <div className="text-xs font-bold text-ink mt-1 truncate max-w-xs">{m.subject || "No subject"}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-muted line-clamp-2 max-w-sm">{m.message}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted">
+                        {m.createdAt ? new Date(m.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => setViewingMessage(m)}
+                            className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold text-ink hover:bg-soft"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMessage(m._id)}
+                            className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"
+                            title="Delete message"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* View Message Modal */}
+      {viewingMessage && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setViewingMessage(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-ink">{viewingMessage.name}</h3>
+                <p className="text-xs text-muted">{viewingMessage.email} {viewingMessage.phone ? `· ${viewingMessage.phone}` : ""}</p>
+              </div>
+              <button onClick={() => setViewingMessage(null)} className="rounded-full p-2 text-muted hover:bg-soft">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mb-4 rounded-xl bg-soft p-4">
+              <span className="block text-[10px] font-black uppercase text-muted mb-1">Subject</span>
+              <p className="text-xs font-bold text-ink">{viewingMessage.subject || "General Inquiry"}</p>
+              {viewingMessage.classTitle && (
+                <p className="mt-1 text-xs text-primary font-bold">Interested in: {viewingMessage.classTitle}</p>
+              )}
+            </div>
+            <div className="rounded-xl border border-black/10 p-4 mb-5">
+              <span className="block text-[10px] font-black uppercase text-muted mb-1">Message Content</span>
+              <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">{viewingMessage.message}</p>
+            </div>
+            <div className="flex justify-between items-center">
+              <a
+                href={`mailto:${viewingMessage.email}?subject=${encodeURIComponent(`Re: ${viewingMessage.subject || "Your ISKCON Enquiry"}`)}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-xs font-black text-white hover:bg-primary/90"
+              >
+                <Mail size={14} /> Reply via Email
+              </a>
+              {viewingMessage.phone && (
+                <a
+                  href={`https://wa.me/${viewingMessage.phone.replace(/[^0-9]/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-5 py-2.5 text-xs font-black text-white hover:bg-[#20ba5a]"
+                >
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

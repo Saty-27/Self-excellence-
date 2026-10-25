@@ -21,6 +21,7 @@ import {
   ChatRoom,
   Comment,
   ContactMessage,
+  ContactSetting,
   Course,
   CourseEnrollmentRequest,
   Pilgrimage,
@@ -991,6 +992,24 @@ app.post(
 
 app.get("/api/site-settings", asyncHandler(async (req, res) => res.json({ success: true, settings: await SiteSetting.findOne({ singletonKey: "site" }).lean() })));
 app.get("/api/footer", asyncHandler(async (req, res) => res.json({ success: true, footer: await FooterSetting.findOne({ singletonKey: "footer" }).lean() })));
+app.get("/api/contact-settings", asyncHandler(async (req, res) => {
+  let settings = await ContactSetting.findOne({ singletonKey: "contact" }).lean();
+  if (!settings) {
+    settings = await ContactSetting.create({
+      singletonKey: "contact",
+      title: "Contact Information",
+      address: "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai",
+      phone: "+91 22 2620 6860",
+      email: "selfexcellence@iskconjuhu.in",
+      whatsappNumber: "8928337055",
+      whatsappMessage: "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses.",
+      mapUrl: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed",
+      bannerTitle: "Contact Us",
+      bannerSubtitle: "Questions about classes, courses, enrollment, or volunteering? Reach out."
+    });
+  }
+  res.json({ success: true, settings });
+}));
 app.get(
   "/api/page-sections/:pageName",
   asyncHandler(async (req, res) => {
@@ -2710,7 +2729,9 @@ const SECTION_ALIASES = {
   "trip-stats": "trips",
   "book-orders": "book-orders",
   "book-payment-settings": "book-payment-settings",
-  books: "books"
+  books: "books",
+  "contact-settings": "contact-messages",
+  contact: "contact-messages"
 };
 const sectionFor = (resource = "") => {
   const head = String(resource).split("?")[0];
@@ -3024,6 +3045,51 @@ app.get("/api/admin/site-settings", ...adminOnly, asyncHandler(async (req, res) 
 app.put("/api/admin/site-settings", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, settings: await SiteSetting.findOneAndUpdate({ singletonKey: "site" }, { ...req.body, singletonKey: "site" }, { new: true, upsert: true }) })));
 app.put("/api/admin/legal/:slug", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, item: await LegalPage.findOneAndUpdate({ slug: req.params.slug }, { ...req.body, slug: req.params.slug }, { new: true, upsert: true }) })));
 app.put("/api/admin/contact-messages/:id/read", ...adminOnly, asyncHandler(async (req, res) => res.json({ success: true, item: await ContactMessage.findByIdAndUpdate(req.params.id, { status: "read" }, { new: true }) })));
+app.get("/api/admin/contact-settings", ...adminOnly, asyncHandler(async (req, res) => {
+  let settings = await ContactSetting.findOne({ singletonKey: "contact" }).lean();
+  if (!settings) {
+    settings = await ContactSetting.create({
+      singletonKey: "contact",
+      title: "Contact Information",
+      address: "ISKCON Juhu, Hare Krishna Land, Juhu, Mumbai",
+      phone: "+91 22 2620 6860",
+      email: "selfexcellence@iskconjuhu.in",
+      whatsappNumber: "8928337055",
+      whatsappMessage: "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses.",
+      mapUrl: "https://www.google.com/maps?q=ISKCON%20Juhu&output=embed",
+      bannerTitle: "Contact Us",
+      bannerSubtitle: "Questions about classes, courses, enrollment, or volunteering? Reach out."
+    });
+  }
+  res.json({ success: true, settings });
+}));
+app.put("/api/admin/contact-settings", ...adminOnly, asyncHandler(async (req, res) => {
+  const settings = await ContactSetting.findOneAndUpdate(
+    { singletonKey: "contact" },
+    { ...req.body, singletonKey: "contact" },
+    { new: true, upsert: true }
+  );
+  if (req.body.address || req.body.phone || req.body.email) {
+    await FooterSetting.findOneAndUpdate(
+      { singletonKey: "footer" },
+      {
+        $set: {
+          ...(req.body.address ? { "contactDetails.address": req.body.address } : {}),
+          ...(req.body.phone ? { "contactDetails.phone": req.body.phone } : {}),
+          ...(req.body.email ? { "contactDetails.email": req.body.email } : {})
+        }
+      }
+    ).catch(() => {});
+  }
+  await recordActivity(req, {
+    action: "update",
+    section: "contact-messages",
+    resource: "contact-settings",
+    label: "Updated contact info and map settings",
+    after: settings.toObject ? settings.toObject() : settings
+  });
+  res.json({ success: true, settings, message: "Contact information and map updated successfully." });
+}));
 
 const aliases = { visionaries: "preachers", "media/images": "gallery-images", "media/videos": "gallery-videos", "gallery/images": "gallery-images", "gallery/videos": "gallery-videos", "home-sections": "home-sections", "video-intro": "home-sections" };
 const fields = {
@@ -5092,18 +5158,23 @@ app.get("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) =>
     items: items.map((u) => ({
       ...u,
       level: ROLE_LEVEL[u.role] ?? 0,
-      /* main_admin can manage everyone but themselves */
-      manageable: req.user.role === "main_admin"
-        ? String(u._id) !== String(req.user._id)
-        : (ROLE_LEVEL[u.role] ?? 0) < myLevel
+      /* main_admin is permanently protected from edit/delete/block */
+      manageable: u.role === "main_admin"
+        ? false
+        : req.user.role === "main_admin"
+          ? true
+          : (ROLE_LEVEL[u.role] ?? 0) < myLevel
     }))
   });
 }));
 
 app.post("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) => {
-  const { name, email, password, phone, role, sectionAccess } = req.body;
+  const { name, email, password, phone, role, sectionAccess, status } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: "Name, email and password are required." });
+  }
+  if (String(password).length < 6) {
+    return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
   }
   if (!STAFF_ROLES.includes(role)) {
     return res.status(400).json({ success: false, message: "Pick a valid staff role." });
@@ -5115,15 +5186,18 @@ app.post("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) =
     return res.status(400).json({ success: false, message: "That email is already registered." });
   }
 
+  const staffStatus = status === "blocked" ? "blocked" : "active";
+
   const staff = await User.create({
-    name,
-    email,
+    name: name.trim(),
+    email: String(email).toLowerCase().trim(),
     password,
     phone,
     role,
     sectionAccess: Array.isArray(sectionAccess) ? sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section)) : [],
     managedBy: req.user._id,
-    status: "active",
+    status: staffStatus,
+    blockedAt: staffStatus === "blocked" ? new Date() : undefined,
     emailVerified: true
   });
 
@@ -5138,6 +5212,187 @@ app.post("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) =
     after: safe
   });
   res.status(201).json({ success: true, item: safe, message: `${name} can now sign in to the admin panel.` });
+}));
+
+app.put("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target) return res.status(404).json({ success: false, message: "Staff member not found" });
+
+  if (target.role === "main_admin" && req.user.role !== "main_admin") {
+    return res.status(403).json({ success: false, message: "Main Admin account is protected and cannot be modified." });
+  }
+
+  if (String(target._id) === String(req.user._id)) {
+    if (req.body.role && req.body.role !== target.role) {
+      return res.status(400).json({ success: false, message: "You cannot change your own role." });
+    }
+    if (req.body.status && req.body.status !== target.status) {
+      return res.status(400).json({ success: false, message: "You cannot change your own account status." });
+    }
+  } else if (req.user.role !== "main_admin" && roleLevel(target) >= roleLevel(req.user)) {
+    return res.status(403).json({ success: false, message: "You cannot modify an account at or above your own role." });
+  }
+
+  const before = target.toObject();
+  delete before.password;
+
+  if (req.body.name && req.body.name.trim()) {
+    target.name = req.body.name.trim();
+  }
+
+  if (req.body.email) {
+    const nextEmail = String(req.body.email).toLowerCase().trim();
+    if (nextEmail !== target.email) {
+      const existing = await User.findOne({ email: nextEmail, _id: { $ne: target._id } });
+      if (existing) {
+        return res.status(400).json({ success: false, message: "That email is already registered to another user." });
+      }
+      target.email = nextEmail;
+    }
+  }
+
+  if (req.body.phone !== undefined) {
+    target.phone = req.body.phone;
+  }
+
+  if (req.body.role && req.body.role !== target.role) {
+    if (target.role === "main_admin") {
+      return res.status(403).json({ success: false, message: "Main Admin role cannot be changed." });
+    }
+    if (!STAFF_ROLES.includes(req.body.role)) {
+      return res.status(400).json({ success: false, message: "Pick a valid staff role." });
+    }
+    if (req.user.role !== "main_admin" && (ROLE_LEVEL[req.body.role] ?? 0) >= roleLevel(req.user)) {
+      return res.status(403).json({ success: false, message: "You cannot grant a role at or above your own." });
+    }
+    target.role = req.body.role;
+  }
+
+  if (req.body.status && req.body.status !== target.status) {
+    if (target.role === "main_admin" && req.body.status === "blocked") {
+      return res.status(403).json({ success: false, message: "Main Admin account cannot be blocked." });
+    }
+    target.status = req.body.status;
+    if (req.body.status === "blocked") {
+      target.blockedAt = new Date();
+    } else if (req.body.status === "active") {
+      target.blockedAt = null;
+    }
+  }
+
+  if (Array.isArray(req.body.sectionAccess)) {
+    target.sectionAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+  }
+
+  if (req.body.password && String(req.body.password).trim()) {
+    const rawPass = String(req.body.password).trim();
+    if (rawPass.length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters long." });
+    }
+    target.password = rawPass;
+  }
+
+  await target.save();
+
+  const after = target.toObject();
+  delete after.password;
+  await recordActivity(req, {
+    action: "update",
+    section: "users",
+    resource: "users",
+    resourceId: String(target._id),
+    label: `${target.name} updated`,
+    before,
+    after,
+    changedFields: ["name", "email", "phone", "role", "sectionAccess", "status", "password"].filter(
+      (k) => req.body[k] !== undefined
+    )
+  });
+
+  res.json({ success: true, item: after, message: `${target.name}'s details have been updated.` });
+}));
+
+app.patch("/api/admin/staff/:id/status", protect, staffGate, asyncHandler(async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target) return res.status(404).json({ success: false, message: "Staff member not found" });
+
+  if (target.role === "main_admin") {
+    return res.status(403).json({ success: false, message: "Main Admin account is protected and cannot be blocked." });
+  }
+  if (String(target._id) === String(req.user._id)) {
+    return res.status(400).json({ success: false, message: "You cannot block or unblock your own account." });
+  }
+  if (req.user.role !== "main_admin" && roleLevel(target) >= roleLevel(req.user)) {
+    return res.status(403).json({ success: false, message: "You cannot change the status of an account at or above your own role." });
+  }
+
+  const nextStatus = req.body.status || (target.status === "blocked" ? "active" : "blocked");
+  if (!["active", "blocked", "inactive"].includes(nextStatus)) {
+    return res.status(400).json({ success: false, message: "Invalid status value." });
+  }
+
+  const before = target.toObject();
+  delete before.password;
+
+  target.status = nextStatus;
+  if (nextStatus === "blocked") {
+    target.blockedAt = new Date();
+  } else if (nextStatus === "active") {
+    target.blockedAt = null;
+  }
+  await target.save();
+
+  const after = target.toObject();
+  delete after.password;
+
+  await recordActivity(req, {
+    action: "update",
+    section: "users",
+    resource: "users",
+    resourceId: String(target._id),
+    label: `${target.name} status -> ${nextStatus}`,
+    before,
+    after,
+    changedFields: ["status"]
+  });
+
+  res.json({
+    success: true,
+    item: after,
+    message: nextStatus === "blocked" ? `${target.name} has been blocked.` : `${target.name} is now active.`
+  });
+}));
+
+app.delete("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target) return res.status(404).json({ success: false, message: "Staff member not found" });
+
+  if (target.role === "main_admin") {
+    return res.status(403).json({ success: false, message: "Main Admin account is permanently protected and cannot be deleted." });
+  }
+  if (String(target._id) === String(req.user._id)) {
+    return res.status(400).json({ success: false, message: "You cannot delete your own account." });
+  }
+  if (req.user.role !== "main_admin" && roleLevel(target) >= roleLevel(req.user)) {
+    return res.status(403).json({ success: false, message: "You cannot delete an account at or above your own role." });
+  }
+
+  const before = target.toObject();
+  delete before.password;
+
+  await User.findByIdAndDelete(target._id);
+  await LoginSession.deleteMany({ user: target._id }).catch(() => {});
+
+  await recordActivity(req, {
+    action: "delete",
+    section: "users",
+    resource: "users",
+    resourceId: String(target._id),
+    label: `Deleted staff: ${target.name} (${target.email})`,
+    before
+  });
+
+  res.json({ success: true, message: `Staff member ${target.name} has been permanently deleted.` });
 }));
 
 app.put("/api/admin/staff/:id/access", protect, staffGate, asyncHandler(async (req, res) => {

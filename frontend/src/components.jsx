@@ -16,6 +16,7 @@ import {
   Image,
   KeyRound,
   LayoutDashboard,
+  Loader2,
   Lock,
   LogOut,
   Menu,
@@ -763,6 +764,233 @@ export const Footer = () => {
   );
 };
 
+export const FloatingContactButtons = () => {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const [contactSettings, setContactSettings] = useState(null);
+
+  useEffect(() => {
+    apiFetch("/contact-settings")
+      .then((res) => {
+        if (res.settings) setContactSettings(res.settings);
+      })
+      .catch(() => {});
+  }, []);
+
+  const whatsappNum = contactSettings?.whatsappNumber || "8928337055";
+  const cleanWaNum = whatsappNum.replace(/[^0-9]/g, "");
+  const waTarget = cleanWaNum.length === 10 ? `91${cleanWaNum}` : cleanWaNum;
+  const waMsg = contactSettings?.whatsappMessage || "Hare Krishna! I would like to know more about ISKCON Self-Excellence courses.";
+  const waLink = `https://wa.me/${waTarget}?text=${encodeURIComponent(waMsg)}`;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.message.trim()) {
+      setError("Please fill out all fields.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await apiFetch("/contact", {
+        method: "POST",
+        body: {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          subject: "Floating Contact Modal Enquiry",
+          message: form.message.trim()
+        }
+      });
+      setSuccess(true);
+      setForm({ name: "", email: "", phone: "", message: "" });
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-auto">
+        {/* Contact Us Floating Button */}
+        <button
+          onClick={() => {
+            setSuccess(false);
+            setError("");
+            setOpen(true);
+          }}
+          className="group relative flex h-13 w-13 items-center justify-center rounded-full bg-primary text-white shadow-xl shadow-primary/30 transition-all duration-200 hover:scale-110 hover:bg-primary/95 focus:outline-none"
+          aria-label="Contact Us"
+          title="Contact Us"
+        >
+          <MessageSquare size={22} />
+          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white shadow-md sm:group-hover:block">
+            Contact Us
+          </span>
+        </button>
+
+        {/* WhatsApp Business Floating Button */}
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-[#25D366]/40 transition-all duration-200 hover:scale-110 hover:bg-[#20ba5a] focus:outline-none"
+          aria-label="Chat on WhatsApp"
+          title={`Chat on WhatsApp (${whatsappNum})`}
+        >
+          <svg className="h-7 w-7 fill-current" viewBox="0 0 24 24">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.587 1.771.884 2.791.885h.005c3.181 0 5.767-2.586 5.767-5.767.001-3.18-2.585-5.77-5.766-5.77zm3.364 8.163c-.144.405-.837.774-1.17.824-.312.045-.694.06-2.001-.482-1.637-.678-2.684-2.336-2.766-2.445-.081-.11-.663-.883-.663-1.684 0-.802.42-1.196.569-1.359.149-.163.325-.203.433-.203.11 0 .217.002.312.007.1.006.234-.038.366.279.136.326.463 1.13.504 1.212.041.082.068.177.014.284-.055.109-.082.177-.163.272-.082.096-.172.214-.246.287-.082.082-.167.172-.072.335.095.163.424.7.91 1.133.627.558 1.155.73 1.318.812.163.082.259.068.354-.041.096-.11.408-.476.517-.639.109-.163.218-.136.367-.082.149.055.952.449 1.115.531.163.082.272.122.312.19.041.068.041.394-.103.799zm-3.364-10.335c-5.514 0-10 4.486-10 10 0 1.956.564 3.784 1.542 5.335l-1.637 5.978 6.137-1.61c1.503.909 3.255 1.433 5.127 1.433h.005c5.514 0 10-4.486 10-10 0-5.514-4.486-10-10-10zm0 18.25c-1.696 0-3.313-.497-4.686-1.364l-.336-.212-3.468.91.925-3.379-.232-.37c-.958-1.528-1.467-3.298-1.467-5.115 0-4.549 3.701-8.25 8.25-8.25 4.549 0 8.25 3.701 8.25 8.25 0 4.549-3.701 8.25-8.25 8.25z" />
+          </svg>
+          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white shadow-md sm:group-hover:block">
+            Chat on WhatsApp
+          </span>
+        </a>
+      </div>
+
+      {/* Contact Modal */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-2xl relative animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setOpen(false)}
+              className="absolute right-5 top-5 rounded-full p-2 text-muted transition hover:bg-soft hover:text-ink"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+
+            {success ? (
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <CheckCircle2 size={36} />
+                </div>
+                <h3 className="text-2xl font-black text-ink">Hare Krishna!</h3>
+                <p className="mt-2 text-sm text-muted">
+                  Thank you for reaching out. We have received your query and our devotees will contact you shortly.
+                </p>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="mt-6 rounded-full bg-primary px-8 py-3 text-sm font-black text-white shadow-md transition hover:bg-primary/90"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <span className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary">
+                    Get in Touch
+                  </span>
+                  <h3 className="mt-2 text-2xl font-black text-ink">Contact Us</h3>
+                  <p className="mt-1 text-xs text-muted">
+                    Have questions about courses, temple programs, or seva? Leave a message below.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="mb-4 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-700">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="grid gap-3.5">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-muted">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="e.g. Ramesh Sharma"
+                      className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="grid gap-3.5 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-muted">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        placeholder="e.g. ramesh@gmail.com"
+                        className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-muted">
+                        Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        placeholder="e.g. 9876543210"
+                        className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] font-black uppercase tracking-wide text-muted">
+                      Your Message / Query *
+                    </label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={form.message}
+                      onChange={(e) => setForm({ ...form, message: e.target.value })}
+                      placeholder="Type your question or query here..."
+                      className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="mt-2">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-primary/25 transition hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} /> Send Message
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 export const PublicLayout = () => {
   const { pathname } = useLocation();
   // The homepage hero is designed to sit underneath the transparent bar;
@@ -775,6 +1003,7 @@ export const PublicLayout = () => {
       <Outlet />
     </main>
     <Footer />
+    <FloatingContactButtons />
   </div>
   );
 };
@@ -1283,7 +1512,7 @@ export const dashboardLinks = {
     { label: "Image Gallery", url: "/admin/media/images", icon: Image },
     { label: "Video Gallery", url: "/admin/media/videos", icon: PlayCircle },
     { label: "Subscribers", url: "/admin/subscribers", icon: Users },
-    { label: "Contact Messages", url: "/admin/contact-messages", icon: MessageSquare },
+    { label: "Contact & Messages", url: "/admin/contact", icon: MessageSquare },
     { label: "Comments", url: "/admin/comments", icon: MessageSquare },
     { label: "Chat Moderation", url: "/admin/chat", icon: MessageSquare },
     { label: "Notifications", url: "/admin/notifications", icon: Bell },
@@ -1309,7 +1538,9 @@ const sectionOf = (url = "") => {
     roles: "roles",
     books: "books",
     "book-orders": "book-orders",
-    "book-payment-settings": "book-payment-settings"
+    "book-payment-settings": "book-payment-settings",
+    contact: "contact-messages",
+    "contact-settings": "contact-messages"
   };
   return map[tail] || tail.split("/")[0];
 };
