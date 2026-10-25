@@ -217,6 +217,44 @@ async function run() {
   );
   console.log(" -> Book:", bbd.title, `₹${bbd.pricePerBook} (GST: ${bbd.gstPercent}%)`);
 
+  console.log("Upserting Coming Back book...");
+  const cb = await Book.findOneAndUpdate(
+    { slug: "coming-back" },
+    {
+      $set: {
+        title: "Coming Back",
+        slug: "coming-back",
+        subtitle: "The Science of Reincarnation",
+        authorOrTranslator: "His Divine Grace A.C. Bhaktivedanta Swami Prabhupada",
+        pricePerBook: 40,
+        mrp: 50,
+        gstPercent: 18,
+        coverImage: "/uploads/books/coming-back.jpg",
+        language: "Hindi & English",
+        binding: "Pocket Paperback",
+        allowBuy: true,
+        allowDistribute: true,
+        minBuyQty: 1,
+        maxBuyQty: 1000,
+        minDistributeQty: 10,
+        maxDistributeQty: 100000,
+        distributionPresets: [10, 50, 100, 250, 500, 1000, 5000],
+        isActive: true,
+        displayOrder: 5,
+        shortDescription: "An extraordinary, eye-opening exploration into the documented science and Vedic reality of past lives, reincarnation, and destiny.",
+        fullDescription: `<p>Coming Back: The Science of Reincarnation explores one of life’s most fascinating and misunderstood subjects. Is life after death a fantasy or a scientific reality? How do our current desires and choices determine our future body and circumstances?</p><p>Based on the profound teachings of His Divine Grace A.C. Bhaktivedanta Swami Prabhupada and the ancient Vedic wisdom of the Bhagavad Gita and Srimad Bhagavatam, this book offers logical explanations, real-world case histories, and practical spiritual guidance for taking control of your spiritual destiny.</p>`,
+        highlights: [
+          "Compelling examination of past-life memories and near-death experiences",
+          "Clear, logical explanation of the universal law of karma and rebirth",
+          "Reveals how consciousness transmigrates from one body to the next",
+          "Practical techniques to break free from the cycle of rebirth"
+        ]
+      }
+    },
+    { upsert: true, new: true }
+  );
+  console.log(" -> Book:", cb.title, `₹${cb.pricePerBook} (GST: ${cb.gstPercent}%)`);
+
   await mongoose.disconnect();
   console.log("Done successfully!");
 }
