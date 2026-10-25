@@ -237,10 +237,10 @@ export const ISKCONHero = () => {
                 <ArrowRight size={18} className="transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
               </Link>
               <Link
-                to="/#upcoming-classes"
+                to="/login"
                 className="inline-flex h-[52px] items-center justify-center rounded-full border-[1.5px] border-primary px-[30px] font-ui font-semibold text-primary transition-colors duration-300 hover:bg-primary hover:text-white t-btn"
               >
-                Join a Pilgrimage
+                Join Community
               </Link>
             </div>
           </div>
