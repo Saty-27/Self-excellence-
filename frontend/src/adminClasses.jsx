@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp, Eye, FileText, Loader2, Plus, Save, Trash2, ExternalLink } from "lucide-react";
 import { apiFetch, assetUrl, uploadFile } from "./api";
 import { SEO } from "./components";
+import { usePermissions } from "./usePermissions";
 
 /* ============================================================
    Admin — Sunday classes
@@ -93,6 +94,7 @@ const BLANK = {
 const dateValue = (v) => (v ? String(v).slice(0, 10) : "");
 
 export const AdminClassesPage = () => {
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -165,6 +167,14 @@ export const AdminClassesPage = () => {
   };
 
   const save = async () => {
+    if (editing && !canEdit("upcoming-classes")) {
+      setNotice("You do not have permission to edit classes.");
+      return;
+    }
+    if (!editing && !canCreate("upcoming-classes")) {
+      setNotice("You do not have permission to create classes.");
+      return;
+    }
     if (!form.title.trim()) {
       setNotice("A class needs a title.");
       return;
@@ -195,6 +205,10 @@ export const AdminClassesPage = () => {
   };
 
   const remove = async (item) => {
+    if (!canDelete("upcoming-classes")) {
+      setNotice("You do not have permission to delete classes.");
+      return;
+    }
     if (!confirm(`Delete "${item.title}"?`)) return;
     try {
       await apiFetch(`/admin/upcoming-classes/${item._id}`, { method: "DELETE" });
@@ -415,8 +429,12 @@ export const AdminClassesPage = () => {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
-                    <button onClick={() => startEdit(c)} className="rounded-full border border-black/10 px-3 py-1.5 text-[11px] font-black text-ink transition hover:border-primary hover:text-primary">Edit</button>
-                    <button onClick={() => remove(c)} className="rounded-lg p-1.5 text-rose-600 transition hover:bg-rose-50" aria-label="Delete"><Trash2 size={14} /></button>
+                    {canEdit("upcoming-classes") && (
+                      <button onClick={() => startEdit(c)} className="rounded-full border border-black/10 px-3 py-1.5 text-[11px] font-black text-ink transition hover:border-primary hover:text-primary">Edit</button>
+                    )}
+                    {canDelete("upcoming-classes") && (
+                      <button onClick={() => remove(c)} className="rounded-lg p-1.5 text-rose-600 transition hover:bg-rose-50" aria-label="Delete"><Trash2 size={14} /></button>
+                    )}
                   </div>
                 </td>
               </tr>

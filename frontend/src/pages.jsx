@@ -38,7 +38,8 @@ import {
   Calendar,
   MapPin,
   Phone,
-  RotateCcw
+  RotateCcw,
+  ExternalLink
 } from "lucide-react";
 import {
   BlogCard,
@@ -81,6 +82,7 @@ import { BlogTile } from "./latestBlogs";
 import { VideoBlogTile } from "./videoBlogs";
 import { apiFetch, assetUrl, uploadFile, API_URL } from "./api";
 import { useAuth } from "./AuthContext";
+import { usePermissions } from "./usePermissions";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
@@ -180,9 +182,10 @@ export const HomePage = () => {
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState("");
 
-  /* Featured pilgrimage comes from the CMS; the hardcoded journey
+  /* Featured pilgrimage comes from the CMS / Journey API; the hardcoded journey
      stays as the fallback so the band still reads correctly before
      an admin has published one. */
+  const { item: dynamicFeaturedJourney, loading: journeyLoading } = useSingle("/journeys/featured", null, "item");
   const pilgrimages = useList("/pilgrimages?homepage=true&limit=1", []).items;
   const featuredPilgrimage = pilgrimages[0];
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -265,22 +268,38 @@ export const HomePage = () => {
 
       <PilgrimageSection
         journey={
-          featuredPilgrimage
+          dynamicFeaturedJourney || (featuredPilgrimage
             ? {
                 ...featuredJourney,
                 badge: featuredPilgrimage.badge || featuredJourney.badge,
+                badgeText: featuredPilgrimage.badge || featuredJourney.badge,
                 title: featuredPilgrimage.title,
                 route: featuredPilgrimage.route || featuredJourney.route,
+                routeText: featuredPilgrimage.route || featuredJourney.route,
+                mainImage: featuredPilgrimage.image,
+                floatingImage1: featuredPilgrimage.image,
+                floatingImage2: featuredPilgrimage.gallery?.[0]?.imageUrl || featuredPilgrimage.image,
                 duration: featuredPilgrimage.days ? `${featuredPilgrimage.days} Days` : featuredJourney.duration,
                 nights: featuredPilgrimage.nights ? `${featuredPilgrimage.nights} Nights` : featuredJourney.nights,
                 routeDetail: featuredPilgrimage.routeDetail || featuredJourney.routeDetail,
                 visitDetail: featuredPilgrimage.visitDetail || featuredJourney.visitDetail,
                 guideDetail: featuredPilgrimage.guideDetail || featuredJourney.guideDetail,
-                price: `\u20B9${Number(featuredPilgrimage.pricePerPerson || 0).toLocaleString("en-IN")}`
+                ctaText: "Book Now"
               }
-            : featuredJourney
+            : featuredJourney)
         }
-        onBook={() => (featuredPilgrimage ? setBookingOpen(true) : navigate("/trips"))}
+        loading={journeyLoading}
+        onBook={() => {
+          if (dynamicFeaturedJourney?.slug) {
+            navigate(`/journeys/${dynamicFeaturedJourney.slug}`);
+          } else if (featuredPilgrimage?.slug) {
+            navigate(`/trips/${featuredPilgrimage.slug}`);
+          } else if (featuredPilgrimage) {
+            setBookingOpen(true);
+          } else {
+            navigate("/trips");
+          }
+        }}
         onViewAll={() => navigate("/trips")}
       />
 
@@ -2236,18 +2255,166 @@ export const LegalPage = ({ slug, title }) => {
 };
 
 export const SitemapPage = () => {
-  const courseItems = useList("/courses/active?limit=100", []).items;
+  const courseItems = useList("/courses?limit=100", []).items;
+  const classItems = useList("/upcoming-classes?limit=100", []).items;
+  const bookItems = useList("/books?limit=100", []).items;
+  const journeyItems = useList("/journeys/upcoming?limit=100", []).items;
   const blogItems = useList("/blogs?limit=100", fallbackBlogs).items;
+  const videoItems = useList("/video-blogs?limit=100", []).items;
   const visionaryItems = useList("/visionaries?limit=100", fallbackPreachers).items;
+
   const groups = [
-    { title: "Main Pages", links: [["Home", "/"], ["About", "/about"], ["Courses", "/courses"], ["Contact", "/contact"]] },
-    { title: "Courses", links: courseItems.map((item) => [item.title, `/courses/${item.slug}`]) },
-    { title: "Blogs", links: blogItems.map((item) => [item.title, `/blogs/${item.slug}`]) },
-    { title: "Visionaries", links: visionaryItems.map((item) => [item.name, `/visionaries/${item.slug}`]) },
-    { title: "Media", links: [["Image Gallery", "/gallery/images"], ["Video Gallery", "/gallery/videos"], ["Video Blogs", "/video-blogs"]] },
-    { title: "Legal Pages", links: [["Privacy Policy", "/privacy-policy"], ["Terms and Conditions", "/terms-and-conditions"]] }
+    {
+      title: "Core Hubs",
+      links: [
+        ["Home Page", "/"],
+        ["About ISKCON Juhu", "/about"],
+        ["All Courses", "/courses"],
+        ["Sunday Classes", "/classes"],
+        ["Book Store", "/books"],
+        ["Sacred Journeys", "/trips"],
+        ["Wisdom Blogs", "/blogs"],
+        ["Video Lectures", "/video-blogs"],
+        ["Preachers & Mentors", "/visionaries"],
+        ["Contact Us", "/contact"]
+      ]
+    },
+    {
+      title: "Self-Excellence Courses",
+      links: courseItems.filter((c) => c.slug).map((item) => [item.title, `/courses/${item.slug}`])
+    },
+    {
+      title: "Sunday Youth Classes",
+      links: classItems.filter((cl) => cl.slug).map((item) => [item.title, `/classes/${item.slug}`])
+    },
+    {
+      title: "Spiritual Books",
+      links: bookItems.filter((b) => b.slug).map((item) => [item.title, `/books/${item.slug}`])
+    },
+    {
+      title: "Sacred Journeys & Yatras",
+      links: journeyItems.filter((j) => j.slug).map((item) => [item.title, `/journeys/${item.slug}`])
+    },
+    {
+      title: "Wisdom Blogs",
+      links: blogItems.filter((b) => b.slug).map((item) => [item.title, `/blogs/${item.slug}`])
+    },
+    {
+      title: "Video Discourses",
+      links: videoItems.filter((v) => v.slug).map((item) => [item.title, `/video-blogs/${item.slug}`])
+    },
+    {
+      title: "Preachers & Mentors",
+      links: visionaryItems.filter((p) => p.slug).map((item) => [item.name || item.title, `/visionaries/${item.slug}`])
+    },
+    {
+      title: "Media & Highlights",
+      links: [
+        ["Sacred Image Gallery", "/gallery/images"],
+        ["Video Gallery", "/gallery/videos"]
+      ]
+    },
+    {
+      title: "Legal & Governance",
+      links: [
+        ["Privacy Policy", "/privacy-policy"],
+        ["Terms and Conditions", "/terms-and-conditions"]
+      ]
+    }
   ];
-  return <><SEO title="Sitemap" /><PageBanner title="Sitemap" subtitle="Structured links to active LMS pages and content." image={images.learning} /><section className="section-pad bg-soft"><div className="container-pad grid gap-6 md:grid-cols-2 lg:grid-cols-3">{groups.map((group) => <div key={group.title} className="rounded-2xl bg-white p-6 shadow-sm"><h2 className="mb-4 text-xl font-black">{group.title}</h2><div className="grid gap-2">{group.links.map(([label, url]) => <Link key={url} to={url} className="text-sm font-bold text-muted hover:text-primary">{label}</Link>)}</div></div>)}</div></section></>;
+
+  return (
+    <>
+      <SEO
+        title="Sitemap & AI Index | ISKCON Juhu Self-Excellence"
+        description="Dynamic directory and XML sitemap for search engines, ChatGPT, and seekers. Direct URLs for courses, Sunday classes, books, yatras, and blogs."
+      />
+      <PageBanner
+        title="Sitemap & AI Directory"
+        subtitle="Complete live directory of courses, Sunday classes, sacred journeys, publications, and wisdom blogs."
+        image={images.learning}
+      />
+
+      <section className="section-pad bg-soft">
+        <div className="container-pad space-y-8">
+          {/* Machine & AI Discovery Bar */}
+          <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+                Real-Time Feeds
+              </span>
+              <h2 className="mt-1 text-lg font-black text-ink">Search Engine & AI Discovery Channels</h2>
+              <p className="text-xs text-muted">
+                Dynamically refreshed on every publish or delete. Fully compliant with Google XML Sitemap, robots.txt, and the Open LLMs Standard.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/sitemap.xml"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#C1121F] px-4 py-2 text-xs font-bold text-white shadow hover:bg-[#9B0D18] transition"
+              >
+                <span>sitemap.xml</span>
+                <ExternalLink size={13} />
+              </a>
+              <a
+                href="/robots.txt"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-soft transition"
+              >
+                <span>robots.txt</span>
+                <ExternalLink size={13} />
+              </a>
+              <a
+                href="/llms.txt"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-soft transition"
+              >
+                <span>llms.txt (AI Index)</span>
+                <ExternalLink size={13} />
+              </a>
+            </div>
+          </div>
+
+          {/* Directory Grid */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {groups.map((group) => {
+              if (!group.links || group.links.length === 0) return null;
+              return (
+                <div key={group.title} className="rounded-2xl bg-white p-6 shadow-sm border border-black/5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-black/5 pb-3 mb-3">
+                      <h3 className="text-base font-black text-ink">{group.title}</h3>
+                      <span className="text-[10px] font-bold text-muted bg-soft px-2 py-0.5 rounded-full">
+                        {group.links.length} {group.links.length === 1 ? "page" : "pages"}
+                      </span>
+                    </div>
+                    <ul className="grid gap-2">
+                      {group.links.map(([label, url]) => (
+                        <li key={url}>
+                          <Link
+                            to={url}
+                            className="text-xs font-bold text-muted hover:text-primary transition inline-flex items-center gap-1.5"
+                          >
+                            <span className="h-1 w-1 rounded-full bg-primary/40 shrink-0" />
+                            <span className="truncate">{label}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </>
+  );
 };
 
 export const AuthPage = ({ register = false, admin = false, teacher = false }) => {
@@ -5928,6 +6095,7 @@ export const AdminBannersPage = () => {
 };
 
 export const AdminCoursesPage = () => {
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const empty = {
     title: "",
     slug: "",
@@ -5996,6 +6164,14 @@ export const AdminCoursesPage = () => {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (editing && !canEdit("courses")) {
+      setNotice("You do not have permission to edit courses.");
+      return;
+    }
+    if (!editing && !canCreate("courses")) {
+      setNotice("You do not have permission to create courses.");
+      return;
+    }
     try {
       const enrollmentTypes = Array.isArray(form.enrollmentType)
         ? form.enrollmentType
@@ -6041,12 +6217,20 @@ export const AdminCoursesPage = () => {
   };
 
   const remove = async (id) => {
+    if (!canDelete("courses")) {
+      setNotice("You do not have permission to delete courses.");
+      return;
+    }
     if (!confirm("Delete this course and all of its lessons?")) return;
     await apiFetch(`/courses/${id}`, { method: "DELETE" });
     load();
   };
 
   const toggle = async (item) => {
+    if (!canEdit("courses")) {
+      setNotice("You do not have permission to edit courses.");
+      return;
+    }
     await apiFetch(`/courses/${item._id}`, { method: "PUT", body: { isActive: !item.isActive } });
     load();
   };
@@ -6054,7 +6238,8 @@ export const AdminCoursesPage = () => {
   return (
     <div>
       <SEO title="Courses - Admin" />
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h1 className="text-3xl font-black">Courses</h1><p className="mt-1 text-sm text-muted">Create course shells, then manage unlimited lessons inside each course.</p></div><button onClick={reset} className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-black text-white"><Plus size={16} />New Course</button></div>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h1 className="text-3xl font-black">Courses</h1><p className="mt-1 text-sm text-muted">Create course shells, then manage unlimited lessons inside each course.</p></div>{canCreate("courses") && <button onClick={reset} className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-black text-white"><Plus size={16} />New Course</button>}</div>
+      {(editing ? canEdit("courses") : canCreate("courses")) && (
       <form onSubmit={submit} className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{editing ? "Edit Course" : "Create Course"}</h2>{editing && <button type="button" onClick={reset} className="text-sm font-black text-primary">Cancel</button>}</div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -6188,6 +6373,7 @@ export const AdminCoursesPage = () => {
         </div>
         <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white"><Save size={16} />Save Course</button>{notice && <p className="mt-4 text-sm font-bold text-primary">{notice}</p>}
       </form>
+      )}
       <div className="grid gap-4">
         {items.map((item) => (
           <div key={item._id} className="grid gap-4 rounded-2xl bg-white p-4 shadow-sm lg:grid-cols-[150px_1fr_auto] lg:items-center">
@@ -6213,11 +6399,19 @@ export const AdminCoursesPage = () => {
               <p className="mt-1 text-sm text-muted">{item.shortDescription || item.category}</p>
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
-              <button onClick={() => setAssigningTeacherFor(item)} className="rounded-lg border border-black/10 px-3 py-2 text-sm font-black text-primary hover:bg-primary/5">Assign Teacher</button>
+              {canEdit("teachers") && (
+                <button onClick={() => setAssigningTeacherFor(item)} className="rounded-lg border border-black/10 px-3 py-2 text-sm font-black text-primary hover:bg-primary/5">Assign Teacher</button>
+              )}
               <Link to={`/admin/courses/${item._id}/lessons`} className="rounded-lg bg-primary px-3 py-2 text-sm font-black text-white hover:bg-primary/90">Manage Lessons</Link>
-              <button onClick={() => toggle(item)} className="rounded-lg border border-black/10 px-3 py-2 text-sm font-black hover:bg-black/5">{item.isActive ? "Disable" : "Enable"}</button>
-              <button onClick={() => edit(item)} className="rounded-lg border border-black/10 p-2 hover:bg-black/5"><Edit size={16} /></button>
-              <button onClick={() => remove(item._id)} className="rounded-lg border border-red-200 p-2 text-primary hover:bg-red-50"><Trash2 size={16} /></button>
+              {canEdit("courses") && (
+                <button onClick={() => toggle(item)} className="rounded-lg border border-black/10 px-3 py-2 text-sm font-black hover:bg-black/5">{item.isActive ? "Disable" : "Enable"}</button>
+              )}
+              {canEdit("courses") && (
+                <button onClick={() => edit(item)} className="rounded-lg border border-black/10 p-2 hover:bg-black/5"><Edit size={16} /></button>
+              )}
+              {canDelete("courses") && (
+                <button onClick={() => remove(item._id)} className="rounded-lg border border-red-200 p-2 text-primary hover:bg-red-50"><Trash2 size={16} /></button>
+              )}
             </div>
           </div>
         ))}
@@ -6581,6 +6775,7 @@ export const AdminLessonContentPage = () => {
 };
 
 export const AdminCrud = ({ resource, title, teacherMode = false }) => {
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const config = adminConfig[resource] || { title: title || resource, fields: ["title", "status"] };
   const endpoint = teacherMode ? `/teacher/${resource}` : `/admin/${resource}`;
   const [items, setItems] = useState([]);
@@ -6594,6 +6789,16 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (!teacherMode) {
+      if (editing && !canEdit(resource)) {
+        setNotice("You do not have permission to edit here.");
+        return;
+      }
+      if (!editing && !canCreate(resource)) {
+        setNotice("You do not have permission to create here.");
+        return;
+      }
+    }
     try {
       const body = normalizeForm(form, config.fields);
       await apiFetch(editing ? `${endpoint}/${editing}` : endpoint, { method: editing ? "PUT" : "POST", body });
@@ -6612,6 +6817,10 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
   };
 
   const remove = async (id) => {
+    if (!teacherMode && !canDelete(resource)) {
+      setNotice("You do not have permission to delete here.");
+      return;
+    }
     if (!confirm("Delete this item?")) return;
     await apiFetch(`${endpoint}/${id}`, { method: "DELETE" });
     load();
@@ -6631,6 +6840,7 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
     <div>
       <SEO title={`${config.title} - Admin`} />
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><h1 className="text-3xl font-black">{title || config.title}</h1><div className="flex gap-2"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="rounded-xl border border-black/10 px-4 py-2" /><button onClick={load} className="rounded-xl bg-ink px-4 py-2 text-sm font-black text-white"><Search size={16} /></button></div></div>
+      {(teacherMode || (editing ? canEdit(resource) : canCreate(resource))) && (
       <form onSubmit={submit} className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{editing ? "Edit" : "Create"} {config.title}</h2>{editing && <button type="button" onClick={() => { setEditing(null); setForm({}); }} className="text-sm font-black text-primary">Cancel</button>}</div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -6692,6 +6902,7 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
         </div>
         <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-black text-white"><Save size={16} />Save</button>{notice && <p className="mt-4 text-sm font-bold text-primary">{notice}</p>}
       </form>
+      )}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm border border-black/5">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-ink text-white">
@@ -6740,8 +6951,12 @@ export const AdminCrud = ({ resource, title, teacherMode = false }) => {
                 </td>
                 <td className="px-4 py-3 text-muted">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ""}</td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => edit(item)} className="mr-2 rounded-lg border border-black/10 p-2 hover:bg-soft transition"><Edit size={16} /></button>
-                  <button onClick={() => remove(item._id)} className="rounded-lg border border-red-200 p-2 text-primary hover:bg-red-50 transition"><Trash2 size={16} /></button>
+                  {(teacherMode || canEdit(resource)) && (
+                    <button onClick={() => edit(item)} className="mr-2 rounded-lg border border-black/10 p-2 hover:bg-soft transition"><Edit size={16} /></button>
+                  )}
+                  {(teacherMode || canDelete(resource)) && (
+                    <button onClick={() => remove(item._id)} className="rounded-lg border border-red-200 p-2 text-primary hover:bg-red-50 transition"><Trash2 size={16} /></button>
+                  )}
                 </td>
               </tr>
             ))}

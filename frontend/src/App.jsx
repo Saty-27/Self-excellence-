@@ -63,6 +63,7 @@ import { BrandLogo, DashboardLayout, ProtectedRoute, PublicLayout } from "./comp
 import { TripsPage } from "./trips";
 import { ClassesRoute, ClassDetailRoute } from "./classRoute";
 import { AdminTripsPage } from "./adminTrips";
+import { AdminJourneysPage } from "./adminJourneys";
 import { AdminClassesPage } from "./adminClasses";
 import { AdminAccessPage } from "./adminAccess";
 import { StudentTripsPage, StudentTripDetailPage } from "./myTrips";
@@ -196,6 +197,7 @@ const App = () => {
         <Route path="/classes" element={<ClassesRoute />} />
         <Route path="/classes/:slug" element={<ClassDetailRoute />} />
         <Route path="/trips/:slug" element={<TripDetailRoute />} />
+        <Route path="/journeys/:slug" element={<TripDetailRoute />} />
         <Route path="/courses/:slug" element={<CourseDetailPage />} />
         <Route path="/learn/:courseSlug/:lessonSlug" element={<LearnPage />} />
         <Route path="/blogs" element={<BlogListPage />} />
@@ -275,6 +277,7 @@ const App = () => {
         <Route path="testimonials" element={<AdminTestimonialsPage />} />
         <Route path="course-requests" element={<AdminCourseRequestsPage />} />
         <Route path="upcoming-classes" element={<AdminClassesPage />} />
+        <Route path="journeys" element={<AdminJourneysPage />} />
         <Route path="pilgrimages" element={<AdminTripsPage />} />
         <Route path="trips" element={<AdminTripsPage />} />
         <Route path="pilgrimage-bookings" element={<AdminPilgrimageBookingsPage />} />

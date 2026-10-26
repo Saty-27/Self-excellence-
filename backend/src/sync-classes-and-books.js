@@ -1,6 +1,6 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import { UpcomingClass, Book, Course, Lesson, CourseContent, User } from "./models.js";
+import { UpcomingClass, Book, Course, Lesson, CourseContent, User, Journey } from "./models.js";
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/self-excellence";
 
@@ -616,6 +616,79 @@ async function run() {
       },
       { upsert: true, new: true }
     );
+  }
+
+  console.log("Upserting Featured Journey...");
+  const existingFeatured = await Journey.findOne({ isFeatured: true });
+  if (!existingFeatured) {
+    const vrindavanJourney = await Journey.findOneAndUpdate(
+      { slug: "5-day-sacred-journey-to-vrindavana" },
+      {
+        $set: {
+          title: "5-Day Sacred Journey to Vrindavana",
+          slug: "5-day-sacred-journey-to-vrindavana",
+          subtitle: "ISKCON Juhu → Vrindavana → ISKCON Juhu",
+          shortDescription: "Travel. Discover. Serve. Experience Krishna Consciousness.",
+          description: "Join us for an unforgettable 5-day spiritual retreat to the holy land of Vrindavana. Guided by senior devotees from ISKCON Juhu, this pilgrimage immerses you in sacred parikramas, temple darshans, devotional discourses, and soulful Yamuna boat kirtans.",
+          status: "published",
+          isFeatured: true,
+          isActive: true,
+          badgeText: "FEATURED PILGRIMAGE",
+          badgeEnabled: true,
+          startingLocation: "ISKCON Juhu",
+          destination: "Vrindavana",
+          returnLocation: "ISKCON Juhu",
+          routeText: "ISKCON Juhu → Vrindavana → ISKCON Juhu",
+          days: 5,
+          nights: 4,
+          startDate: new Date("2026-11-28"),
+          endDate: new Date("2026-12-02"),
+          dateText: "28 Nov 2026 – 2 Dec 2026",
+          mainImage: "/assets/pilgrimage-hero.webp",
+          floatingImage1: "/assets/pilgrimage-kashi-postcard-01.webp",
+          floatingImage2: "/assets/pilgrimage-kashi-postcard-02.webp",
+          basePrice: 18500,
+          priceType: "per_person",
+          currency: "₹",
+          ctaText: "Book Now",
+          maxTravellers: 20,
+          seatsLeft: 12,
+          bookingEnabled: true,
+          templeVisits: "ISKCON Vrindavan, Banke Bihari, Prem Mandir",
+          guideInfo: "Senior Devotees",
+          informationBlocks: [
+            { icon: "calendar", label: "Duration", value: "5 Days / 4 Nights", sortOrder: 1 },
+            { icon: "route", label: "Journey Route", value: "Mumbai → Vrindavana → Mumbai", sortOrder: 2 },
+            { icon: "temple", label: "Temple Visits", value: "ISKCON Vrindavan, Banke Bihari, Prem Mandir", sortOrder: 3 },
+            { icon: "users", label: "Guided by", value: "Senior Devotees", sortOrder: 4 }
+          ],
+          inclusions: [
+            "Deluxe accommodation in Vrindavana",
+            "Pure sattvic prasadam (breakfast, lunch, dinner)",
+            "Guided parikramas & senior devotee lectures",
+            "Private AC group transport throughout"
+          ],
+          exclusions: [
+            "Personal purchases and individual donations",
+            "Optional boat rides or private pujas"
+          ],
+          itinerary: [
+            { dayNumber: 1, title: "Arrival & Welcome Darshan", description: "Arrival in Mathura/Vrindavan, check-in, evening aarti at ISKCON Krishna Balaram Temple." },
+            { dayNumber: 2, title: "Seven Main Temples of Vrindavan", description: "Darshan at Radha Damodar, Radha Raman, Radha Shyamasundar, and Banke Bihari." },
+            { dayNumber: 3, title: "Govardhan Parikrama & Radha Kund", description: "Sacred Govardhan Parikrama by battery rickshaw/walking, bath at Radha Kund and Shyama Kund." },
+            { dayNumber: 4, title: "Varsana & Nandgaon Darshan", description: "Visit to the hilltop palace of Srimati Radharani and Nanda Maharaja's palace in Nandgaon." },
+            { dayNumber: 5, title: "Yamuna Aarti & Return", description: "Morning boat ride and kirtan on the Yamuna, farewell feast, and departure." }
+          ],
+          faqs: [
+            { question: "Who can join this sacred journey?", answer: "Devotees of all ages, families, youth and seniors are warmly welcome. Special care is taken for elderly devotees." },
+            { question: "What is the food arrangement?", answer: "100% sattvic, freshly prepared ISKCON prasadam is served three times daily." },
+            { question: "How are bookings confirmed?", answer: "Once you submit your booking details and payment receipt, our team verifies and sends a confirmation via WhatsApp and email." }
+          ]
+        }
+      },
+      { upsert: true, new: true }
+    );
+    console.log(" -> Featured Journey:", vrindavanJourney.title);
   }
 
   await mongoose.disconnect();

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock,
+  Compass,
   Download,
   FileText,
   GraduationCap,
@@ -1514,6 +1515,7 @@ export const dashboardLinks = {
     { label: "Books", url: "/admin/books", icon: BookOpen },
     { label: "Book Orders", url: "/admin/book-orders", icon: CheckCircle2 },
     { label: "Book Payment Settings", url: "/admin/book-payment-settings", icon: Settings },
+    { label: "Upcoming Journeys", url: "/admin/journeys", icon: Compass },
     { label: "Trips", url: "/admin/pilgrimages", icon: Image },
     { label: "Pilgrimage Bookings", url: "/admin/pilgrimage-bookings", icon: UserCheck },
     { label: "Booking Taxes", url: "/admin/booking-taxes", icon: FileText },
@@ -1541,27 +1543,62 @@ export const dashboardLinks = {
 const sectionOf = (url = "") => {
   const tail = url.split("?")[0].replace(/^\/admin\//, "");
   const map = {
+    journeys: "journeys",
     pilgrimages: "trips",
+    trips: "trips",
     "pilgrimage-bookings": "trip-bookings",
+    "trip-bookings": "trip-bookings",
+    "booking-taxes": "booking-taxes",
+    "upcoming-classes": "upcoming-classes",
     "media/images": "media",
     "media/videos": "media",
+    "gallery-images": "media",
+    "gallery-videos": "media",
+    preachers: "teachers",
+    teachers: "teachers",
     visionaries: "visionaries",
     "video-intro": "home-sections",
+    "home-sections": "home-sections",
+    "about-sections": "about-sections",
     dashboard: "dashboard",
     roles: "roles",
+    staff: "roles",
+    banners: "banners",
+    courses: "courses",
+    lessons: "lessons",
+    "question-paper-maker": "exams",
+    exams: "exams",
+    "course-requests": "course-requests",
     books: "books",
     "book-orders": "book-orders",
     "book-payment-settings": "book-payment-settings",
     contact: "contact-messages",
     "contact-settings": "contact-messages",
-    testimonials: "testimonials"
+    "contact-messages": "contact-messages",
+    testimonials: "testimonials",
+    assets: "assets",
+    notifications: "notifications",
+    "activity-log": "activity-log",
+    sessions: "sessions",
+    users: "users",
+    subscribers: "subscribers",
+    comments: "comments",
+    chat: "chat",
+    footer: "footer",
+    "site-settings": "site-settings",
+    "legal-pages": "pages",
+    pages: "pages",
+    traffic: "traffic",
+    reports: "reports",
+    "password-reset-requests": "users"
   };
   return map[tail] || tail.split("/")[0];
 };
 
 const AdminSectionGuard = ({ user, children }) => {
   const location = useLocation();
-  if (user?.role === "main_admin" || !Array.isArray(user?.sectionAccess)) return children;
+  const isFull = Boolean(user && (user.role === "main_admin" || user.role === "admin" || user.isFullAdmin));
+  if (isFull || !Array.isArray(user?.sectionAccess)) return children;
 
   const section = sectionOf(location.pathname);
   if (["dashboard", "profile", ""].includes(section)) return children;
@@ -1591,12 +1628,12 @@ export const DashboardLayout = ({ role }) => {
   const allLinks = dashboardLinks[role] || [];
 
   /* A staff member only sees the sections granted to them. main_admin
-     is never filtered. This is presentation only — the server checks
+     and full admins (role === "admin") are never filtered. This is presentation only — the server checks
      every request independently. */
-
+  const isFullAdminUser = Boolean(user && (user.role === "main_admin" || user.role === "admin" || user.isFullAdmin));
 
   const links =
-    user?.role !== "main_admin" && Array.isArray(user?.sectionAccess)
+    !isFullAdminUser && Array.isArray(user?.sectionAccess)
       ? allLinks.filter((item) => {
           /* Cross-links out of the admin panel (e.g. the teacher panel)
              are for main_admin only. */

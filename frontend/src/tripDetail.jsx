@@ -183,7 +183,25 @@ export const TripDetailPage = ({ onBook }) => {
     setLoading(true);
     setError("");
     apiFetch(`/trips/${slug}`)
-      .then((data) => !cancelled && setTrip(data.item))
+      .catch(() => apiFetch(`/journeys/${slug}`))
+      .then((data) => {
+        if (cancelled) return;
+        const item = data.item;
+        if (item) {
+          // Normalize Journey schema fields if fetched from /journeys/:slug
+          const normalized = {
+            ...item,
+            image: item.image || item.mainImage,
+            days: item.days || item.durationDays,
+            nights: item.nights || item.durationNights,
+            pricePerPerson: item.pricePerPerson ?? item.basePrice,
+            visitDetail: item.visitDetail || item.templeVisits,
+            guideDetail: item.guideDetail || item.guideNames,
+            routeDetail: item.routeDetail || item.routeText || item.route
+          };
+          setTrip(normalized);
+        }
+      })
       .catch((err) => !cancelled && setError(err.message || "Trip not found"))
       .finally(() => !cancelled && setLoading(false));
     return () => {

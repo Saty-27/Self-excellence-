@@ -25,6 +25,7 @@ import {
   Course,
   CourseEnrollmentRequest,
   Pilgrimage,
+  Journey,
   BookingTax,
   PilgrimageBooking,
   TripAccess,
@@ -74,6 +75,13 @@ import {
   modelRegistry
 } from "./models.js";
 import { booksRouter, attachProtectedBookRoutes, attachAdminBookRoutes } from "./booksRoutes.js";
+import {
+  generateSitemapXml,
+  generateRobotsTxt,
+  generateLlmsTxt,
+  getBaseUrl,
+  writeSitemapToDisk
+} from "./sitemap.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -311,6 +319,194 @@ const verifyOtpRecord = async ({ email, purpose, otp, consume = true }) => {
 const isVerifiedForLogin = (user) => !learnerRoles.includes(user.role) || user.emailVerified !== false;
 const canManageCourseArea = (user) => adminRoles.includes(user?.role);
 
+/* ============================================================
+   CENTRAL STAFF ROLES & PERMISSIONS SYSTEM
+   ============================================================ */
+
+const ROLE_LEVEL = {
+  main_admin: 100,
+  admin: 80,
+  manager: 60,
+  editor: 40,
+  viewer: 20,
+  teacher: 10,
+  student: 0,
+  devotee: 0,
+  user: 0
+};
+
+const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer"];
+const isStaff = (user) => STAFF_ROLES.includes(user?.role);
+const roleLevel = (user) => ROLE_LEVEL[user?.role] ?? 0;
+const isFullAdmin = (user) => Boolean(user && (user.role === "main_admin" || user.role === "admin"));
+
+/* Every admin area the panel can grant, keyed the way the UI routes it. */
+const ADMIN_SECTIONS = [
+  "dashboard", "users", "roles", "activity-log", "sessions",
+  "banners", "home-sections", "about-sections", "pages",
+  "courses", "lessons", "course-requests", "exams",
+  "journeys", "trips", "trip-bookings", "booking-taxes", "upcoming-classes",
+  "visionaries", "teachers", "blogs", "video-blogs", "media",
+  "subscribers", "contact-messages", "comments", "chat",
+  "footer", "site-settings", "traffic", "reports", "assets",
+  "books", "book-orders", "book-payment-settings",
+  "testimonials", "notifications"
+];
+
+/* Canonical Section Aliases mapping API resources and routes to section keys */
+const SECTION_ALIASES = {
+  journeys: "journeys",
+  pilgrimages: "trips",
+  trips: "trips",
+  "pilgrimage-bookings": "trip-bookings",
+  "trip-bookings": "trip-bookings",
+  "booking-taxes": "booking-taxes",
+  "upcoming-classes": "upcoming-classes",
+  "media/images": "media",
+  "media/videos": "media",
+  "gallery-images": "media",
+  "gallery-videos": "media",
+  preachers: "visionaries",
+  visionaries: "visionaries",
+  teachers: "teachers",
+  "video-intro": "home-sections",
+  "home-sections": "home-sections",
+  "about-sections": "about-sections",
+  "trips-overview": "trips",
+  "trip-stats": "trips",
+  "book-orders": "book-orders",
+  "book-payment-settings": "book-payment-settings",
+  books: "books",
+  "contact-settings": "contact-messages",
+  contact: "contact-messages",
+  "contact-messages": "contact-messages",
+  testimonials: "testimonials",
+  staff: "roles",
+  roles: "roles",
+  banners: "banners",
+  courses: "courses",
+  lessons: "lessons",
+  assets: "assets",
+  "course-requests": "course-requests",
+  "activity-log": "activity-log",
+  sessions: "sessions",
+  users: "users",
+  dashboard: "dashboard",
+  subscribers: "subscribers",
+  comments: "comments",
+  chat: "chat",
+  footer: "footer",
+  "site-settings": "site-settings",
+  traffic: "traffic",
+  reports: "reports",
+  notifications: "notifications",
+  exams: "exams",
+  "exam-assignments": "exams",
+  "exam-papers": "exams",
+  "exam-questions": "exams",
+  "exam-question-banks": "exams"
+};
+
+const sectionFor = (resource = "") => {
+  const head = String(resource).split("?")[0].replace(/^\/api\/admin\//, "").replace(/^\/api\//, "").replace(/^\//, "");
+  if (SECTION_ALIASES[head]) return SECTION_ALIASES[head];
+  const first = head.split("/")[0];
+  return SECTION_ALIASES[first] || first;
+};
+
+const ACTION_FOR_METHOD = { GET: "view", POST: "create", PUT: "edit", PATCH: "edit", DELETE: "canDelete" };
+
+const canAccessSection = (user, section, action = "view") => {
+  if (!user) return false;
+  if (!isStaff(user)) return false;
+  // Full Admin (main_admin and admin) has complete access to all sections and CRUD actions
+  if (isFullAdmin(user)) return true;
+
+  const normalizedSection = sectionFor(section);
+  const normalizedAction =
+    action === "delete" || action === "canDelete"
+      ? "canDelete"
+      : action === "edit" || action === "update"
+      ? "edit"
+      : action === "create"
+      ? "create"
+      : "view";
+
+  const grant = (user.sectionAccess || []).find((g) => g.section === normalizedSection);
+  if (!grant) return false;
+
+  if (normalizedAction === "view") return grant.view !== false;
+  return Boolean(grant[normalizedAction]);
+};
+
+const requireSectionPermission = (section, action = "view") => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
+  }
+  if (!isStaff(req.user)) {
+    return res.status(403).json({ success: false, message: "Admin access required" });
+  }
+  if (!canAccessSection(req.user, section, action)) {
+    const act = (action === "canDelete" || action === "delete") ? "delete" : action;
+    return res.status(403).json({
+      success: false,
+      message:
+        action === "view"
+          ? `You do not have access to ${section}.`
+          : `You do not have permission to ${act} in ${section}.`
+    });
+  }
+  next();
+};
+
+const staffGate = (req, res, next) => {
+  if (!isStaff(req.user)) {
+    return res.status(403).json({ success: false, message: "Admin access required" });
+  }
+  if (isFullAdmin(req.user)) return next();
+
+  const raw = req.params.resource || req.path;
+  const section = sectionFor(raw);
+  const action = ACTION_FOR_METHOD[req.method] || "view";
+
+  if (!canAccessSection(req.user, section, action)) {
+    const act = action === "canDelete" ? "delete" : action;
+    return res.status(403).json({
+      success: false,
+      message:
+        action === "view"
+          ? `You do not have access to this section (${section}).`
+          : `You do not have permission to ${act} here.`
+    });
+  }
+  return next();
+};
+
+const computeUserPermissions = (user) => {
+  if (!user || !isStaff(user)) return [];
+  if (isFullAdmin(user)) {
+    return ADMIN_SECTIONS.flatMap((sec) => [
+      `${sec}.view`,
+      `${sec}.read`,
+      `${sec}.create`,
+      `${sec}.edit`,
+      `${sec}.update`,
+      `${sec}.delete`,
+      `${sec}.canDelete`
+    ]);
+  }
+  const perms = [];
+  for (const grant of (user.sectionAccess || [])) {
+    if (!grant || !grant.section) continue;
+    const sec = grant.section;
+    if (grant.view !== false) perms.push(`${sec}.view`, `${sec}.read`);
+    if (grant.create) perms.push(`${sec}.create`);
+    if (grant.edit || grant.update) perms.push(`${sec}.edit`, `${sec}.update`);
+    if (grant.canDelete || grant.delete) perms.push(`${sec}.delete`, `${sec}.canDelete`);
+  }
+  return perms;
+};
+
 const tokenFor = (user) =>
   jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || "development_secret", {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d"
@@ -328,6 +524,8 @@ const userPayload = (user) => ({
   expertise: user.expertise,
   permissions: user.permissions,
   sectionAccess: user.sectionAccess,
+  isFullAdmin: isFullAdmin(user),
+  permissionsList: computeUserPermissions(user),
   status: user.status,
   emailVerified: user.emailVerified,
   mustChangePassword: user.mustChangePassword,
@@ -366,8 +564,14 @@ const optionalUser = asyncHandler(async (req, res, next) => {
 
 const canSeeInactive = (req) => ["main_admin", "teacher"].includes(req.user?.role);
 
+const adminOnly = [protect, staffGate];
+
 const authorize = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ success: false, message: "Forbidden" });
+  if (!req.user) return res.status(401).json({ success: false, message: "Authentication required" });
+  if (roles.includes("main_admin") && isFullAdmin(req.user)) {
+    return next();
+  }
+  if (!roles.includes(req.user.role)) return res.status(403).json({ success: false, message: "Forbidden" });
   next();
 };
 
@@ -1153,7 +1357,36 @@ app.get("/api/trips/filters", asyncHandler(async (req, res) => {
 }));
 
 app.get("/api/trips/:slug", asyncHandler(async (req, res) => {
-  const trip = await Pilgrimage.findOne({ slug: req.params.slug, ...publishedTripFilter() }).lean();
+  let trip = await Pilgrimage.findOne({ slug: req.params.slug, ...publishedTripFilter() }).lean();
+  if (!trip) {
+    const journey = await Journey.findOne({ slug: req.params.slug, status: "published" }).lean();
+    if (journey) {
+      trip = {
+        _id: journey._id,
+        title: journey.title,
+        slug: journey.slug,
+        route: journey.routeText,
+        routeDetail: journey.routeText,
+        image: journey.mainImage,
+        days: journey.durationDays,
+        nights: journey.durationNights,
+        pricePerPerson: journey.basePrice,
+        description: journey.description,
+        visitDetail: journey.templeVisits,
+        guideDetail: journey.guideNames,
+        capacity: journey.totalSeats || 50,
+        itinerary: journey.itinerary || [],
+        inclusions: journey.inclusions || [],
+        exclusions: journey.exclusions || [],
+        faqs: journey.faqs || [],
+        gallery: journey.gallery || [],
+        status: journey.status,
+        featured: journey.isFeatured,
+        paymentQrImage: journey.paymentQrImage || "",
+        upiId: journey.upiId || ""
+      };
+    }
+  }
   if (!trip) return res.status(404).json({ success: false, message: "Trip not found" });
   const taken = await seatsTakenFor([trip._id]);
   const decorated = decorateTrip(trip, taken[String(trip._id)] || 0);
@@ -1192,6 +1425,228 @@ app.get("/api/pilgrimages/:slug", asyncHandler(async (req, res) => {
   if (!item) return res.status(404).json({ success: false, message: "Pilgrimage not found" });
   const taken = await seatsTakenFor([item._id]);
   res.json({ success: true, item: decorateTrip(item, taken[String(item._id)] || 0) });
+}));
+
+/* ============================================================
+   Upcoming Journeys / Featured Pilgrimage APIs
+   ============================================================ */
+
+// Public: Get Featured Journey for Homepage
+app.get("/api/journeys/featured", asyncHandler(async (req, res) => {
+  let journey = await Journey.findOne({ status: "published", isActive: true, isFeatured: true }).lean();
+  if (!journey) {
+    journey = await Journey.findOne({ status: "published", isActive: true }).sort({ sortOrder: 1, createdAt: -1 }).lean();
+  }
+  res.json({ success: true, item: journey || null });
+}));
+
+// Public: Get List of Upcoming Journeys
+app.get("/api/journeys/upcoming", asyncHandler(async (req, res) => {
+  const filter = { status: "published", isActive: true };
+  if (req.query.search) {
+    const rx = new RegExp(req.query.search, "i");
+    filter.$or = [{ title: rx }, { routeText: rx }, { destination: rx }, { startingLocation: rx }];
+  }
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 24, 1), 100);
+  const items = await Journey.find(filter)
+    .sort({ isFeatured: -1, sortOrder: 1, startDate: 1, createdAt: -1 })
+    .limit(limit)
+    .lean();
+  res.json({ success: true, items, total: items.length });
+}));
+
+// Public: Get Journey by Slug or ID
+app.get("/api/journeys/:slug", asyncHandler(async (req, res) => {
+  const query = mongoose.Types.ObjectId.isValid(req.params.slug)
+    ? { $or: [{ slug: req.params.slug }, { _id: req.params.slug }] }
+    : { slug: req.params.slug };
+  let journey = await Journey.findOne(query).lean();
+  if (!journey) {
+    const trip = await Pilgrimage.findOne(query).lean();
+    if (trip) {
+      journey = {
+        _id: trip._id,
+        title: trip.title,
+        slug: trip.slug,
+        routeText: trip.route || trip.routeDetail || "",
+        mainImage: trip.image,
+        floatingImage1: trip.image,
+        floatingImage2: trip.gallery?.[0]?.imageUrl || trip.image,
+        durationDays: trip.days,
+        durationNights: trip.nights,
+        basePrice: trip.pricePerPerson,
+        description: trip.description,
+        status: trip.status || "published",
+        isFeatured: trip.isFeatured || false,
+        templeVisits: trip.visitDetail || "",
+        guideNames: trip.guideDetail || "",
+        itinerary: trip.itinerary || [],
+        inclusions: trip.inclusions || [],
+        exclusions: trip.exclusions || [],
+        faqs: trip.faqs || [],
+        gallery: trip.gallery || [],
+        totalSeats: trip.capacity || 50,
+        ctaText: "Book Now"
+      };
+    }
+  }
+  if (!journey) return res.status(404).json({ success: false, message: "Journey not found" });
+  if (journey.status !== "published" && !canSeeInactive(req)) {
+    return res.status(404).json({ success: false, message: "Journey not published" });
+  }
+  res.json({ success: true, item: journey });
+}));
+
+// Admin: List all Journeys with filtering and search
+app.get("/api/admin/journeys", protect, requireSectionPermission("journeys", "view"), asyncHandler(async (req, res) => {
+  const filter = {};
+  if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
+  if (req.query.featured === "true") filter.isFeatured = true;
+  if (req.query.active === "true") filter.isActive = true;
+  if (req.query.search) {
+    const rx = new RegExp(req.query.search, "i");
+    filter.$or = [{ title: rx }, { routeText: rx }, { destination: rx }, { startingLocation: rx }, { shortDescription: rx }];
+  }
+  const items = await Journey.find(filter).sort({ isFeatured: -1, sortOrder: 1, createdAt: -1 }).lean();
+  res.json({ success: true, items, total: items.length });
+}));
+
+// Admin: Get Single Journey
+app.get("/api/admin/journeys/:id", protect, requireSectionPermission("journeys", "view"), asyncHandler(async (req, res) => {
+  const journey = await Journey.findById(req.params.id).lean();
+  if (!journey) return res.status(404).json({ success: false, message: "Journey not found" });
+  res.json({ success: true, item: journey });
+}));
+
+// Admin: Create Journey
+app.post("/api/admin/journeys", protect, requireSectionPermission("journeys", "create"), asyncHandler(async (req, res) => {
+  const data = { ...req.body };
+  if (!data.title || !data.title.trim()) {
+    return res.status(400).json({ success: false, message: "Journey title is required" });
+  }
+  if (!data.slug || !data.slug.trim()) {
+    data.slug = slugify(data.title);
+  }
+  const existing = await Journey.findOne({ slug: data.slug });
+  if (existing) {
+    data.slug = `${data.slug}-${Date.now().toString(36)}`;
+  }
+  if (data.isFeatured) {
+    await Journey.updateMany({}, { $set: { isFeatured: false } });
+  }
+  const item = await Journey.create(data);
+  res.status(201).json({ success: true, item });
+}));
+
+// Admin: Update Journey
+app.put("/api/admin/journeys/:id", protect, requireSectionPermission("journeys", "edit"), asyncHandler(async (req, res) => {
+  const data = { ...req.body };
+  if (data.isFeatured) {
+    await Journey.updateMany({ _id: { $ne: req.params.id } }, { $set: { isFeatured: false } });
+  }
+  if (data.title && !data.slug) {
+    data.slug = slugify(data.title);
+  }
+  const item = await Journey.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true });
+  if (!item) return res.status(404).json({ success: false, message: "Journey not found" });
+  res.json({ success: true, item });
+}));
+
+// Admin: Delete Journey
+app.delete("/api/admin/journeys/:id", protect, requireSectionPermission("journeys", "canDelete"), asyncHandler(async (req, res) => {
+  const item = await Journey.findByIdAndDelete(req.params.id);
+  if (!item) return res.status(404).json({ success: false, message: "Journey not found" });
+  res.json({ success: true, message: "Journey deleted successfully" });
+}));
+
+// Admin: Quick Status Toggle
+app.patch("/api/admin/journeys/:id/status", protect, requireSectionPermission("journeys", "edit"), asyncHandler(async (req, res) => {
+  const update = {};
+  if (req.body.status) update.status = req.body.status;
+  if (typeof req.body.isActive === "boolean") update.isActive = req.body.isActive;
+  const item = await Journey.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+  if (!item) return res.status(404).json({ success: false, message: "Journey not found" });
+  res.json({ success: true, item });
+}));
+
+// Admin: Quick Featured Toggle (Guarantees only 1 featured)
+app.patch("/api/admin/journeys/:id/featured", protect, requireSectionPermission("journeys", "edit"), asyncHandler(async (req, res) => {
+  const isFeatured = Boolean(req.body.isFeatured);
+  if (isFeatured) {
+    await Journey.updateMany({ _id: { $ne: req.params.id } }, { $set: { isFeatured: false } });
+  }
+  const item = await Journey.findByIdAndUpdate(req.params.id, { $set: { isFeatured } }, { new: true });
+  if (!item) return res.status(404).json({ success: false, message: "Journey not found" });
+  res.json({ success: true, item });
+}));
+
+/* ============================================================
+   Dynamic Sitemap, Robots.txt & AI Search (LLMs) APIs
+   ============================================================ */
+
+// Dynamic XML Sitemap for Search Engines & AI Crawlers
+const handleSitemapXml = asyncHandler(async (req, res) => {
+  const baseUrl = await getBaseUrl(req);
+  const { xml } = await generateSitemapXml({ baseUrl });
+  res.set("Content-Type", "application/xml; charset=utf-8");
+  res.set("X-Robots-Tag", "noindex");
+  res.set("Cache-Control", "public, max-age=1800, s-maxage=1800, stale-while-revalidate=86400");
+  res.send(xml);
+});
+
+app.get("/sitemap.xml", handleSitemapXml);
+app.get("/api/sitemap.xml", handleSitemapXml);
+
+// Dynamic Robots.txt with AI Bots & Crawler directives
+const handleRobotsTxt = asyncHandler(async (req, res) => {
+  const baseUrl = await getBaseUrl(req);
+  const robots = generateRobotsTxt({ baseUrl });
+  res.set("Content-Type", "text/plain; charset=utf-8");
+  res.set("Cache-Control", "public, max-age=86400");
+  res.send(robots);
+});
+
+app.get("/robots.txt", handleRobotsTxt);
+app.get("/api/robots.txt", handleRobotsTxt);
+
+// Dynamic LLMs.txt for ChatGPT, Claude, Perplexity & AI Search Engines
+const handleLlmsTxt = asyncHandler(async (req, res) => {
+  const baseUrl = await getBaseUrl(req);
+  const llms = await generateLlmsTxt({ baseUrl });
+  res.set("Content-Type", "text/markdown; charset=utf-8");
+  res.set("Cache-Control", "public, max-age=3600");
+  res.send(llms);
+});
+
+app.get("/llms.txt", handleLlmsTxt);
+app.get("/api/llms.txt", handleLlmsTxt);
+
+// Admin: Sitemap Stats
+app.get("/api/admin/sitemap/stats", protect, requireSectionPermission("site-settings", "view"), asyncHandler(async (req, res) => {
+  const baseUrl = await getBaseUrl(req);
+  const { total, counts } = await generateSitemapXml({ baseUrl });
+  res.json({
+    success: true,
+    total,
+    counts,
+    sitemapUrl: `${baseUrl}/sitemap.xml`,
+    robotsUrl: `${baseUrl}/robots.txt`,
+    llmsUrl: `${baseUrl}/llms.txt`
+  });
+}));
+
+// Admin: Manually force write sitemap to disk and sync
+app.post("/api/admin/sitemap/refresh", protect, requireSectionPermission("site-settings", "edit"), asyncHandler(async (req, res) => {
+  const baseUrl = await getBaseUrl(req);
+  const result = await writeSitemapToDisk(baseUrl);
+  const { total, counts } = await generateSitemapXml({ baseUrl });
+  res.json({
+    success: true,
+    message: `Sitemap refreshed successfully with ${total} active URLs.`,
+    total,
+    counts,
+    diskSync: result
+  });
 }));
 
 /* Public so the booking form can price a trip before submitting. */
@@ -1352,7 +1807,7 @@ app.get("/api/pilgrimage-bookings/my-bookings", protect, asyncHandler(async (req
   res.json({ success: true, items });
 }));
 
-app.get("/api/admin/trip-stats", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/trip-stats", protect, requireSectionPermission("trips", "view"), asyncHandler(async (req, res) => {
   const now = new Date();
   const [totalTrips, publishedTrips, upcomingTrips, bookingCounts, revenueRows, participantRows] = await Promise.all([
     Pilgrimage.countDocuments({}),
@@ -1386,13 +1841,13 @@ app.get("/api/admin/trip-stats", protect, authorize("main_admin"), asyncHandler(
 }));
 
 /* Admin trip list with the derived seat counts the table needs. */
-app.get("/api/admin/trips-overview", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/trips-overview", protect, requireSectionPermission("trips", "view"), asyncHandler(async (req, res) => {
   const trips = await Pilgrimage.find({}).sort({ featuredOrder: 1, createdAt: -1 }).lean();
   const taken = await seatsTakenFor(trips.map((t) => t._id));
   res.json({ success: true, items: trips.map((t) => decorateTrip(t, taken[String(t._id)] || 0)) });
 }));
 
-app.put("/api/admin/pilgrimage-bookings/:id/approve", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.put("/api/admin/pilgrimage-bookings/:id/approve", protect, requireSectionPermission("trip-bookings", "edit"), asyncHandler(async (req, res) => {
   const booking = await PilgrimageBooking.findById(req.params.id);
   if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
@@ -1437,7 +1892,7 @@ app.put("/api/admin/pilgrimage-bookings/:id/approve", protect, authorize("main_a
   res.json({ success: true, message: "Booking confirmed.", booking });
 }));
 
-app.put("/api/admin/pilgrimage-bookings/:id/reject", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.put("/api/admin/pilgrimage-bookings/:id/reject", protect, requireSectionPermission("trip-bookings", "edit"), asyncHandler(async (req, res) => {
   const { reason } = req.body;
   if (!reason || !reason.trim()) {
     return res.status(400).json({ success: false, message: "Rejection reason is required." });
@@ -1742,19 +2197,19 @@ const lessonListForCourse = async (req, courseId) => {
 };
 
 app.get("/api/banners/active", asyncHandler(async (req, res) => res.json({ success: true, items: await HeroBanner.find({ isActive: true }).sort({ order: 1, createdAt: -1 }).lean() })));
-app.get("/api/banners", protect, authorize("main_admin"), asyncHandler(async (req, res) => list(req, res, HeroBanner, {}, { sort: { order: 1, createdAt: -1 } })));
-app.post("/api/banners", protect, authorize("main_admin"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await HeroBanner.create(prepareBannerBody(req.body)) })));
-app.put("/api/banners/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => res.json({ success: true, item: await HeroBanner.findByIdAndUpdate(req.params.id, prepareBannerBody(req.body), { new: true, runValidators: true }) })));
-app.delete("/api/banners/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/banners", protect, requireSectionPermission("banners", "view"), asyncHandler(async (req, res) => list(req, res, HeroBanner, {}, { sort: { order: 1, createdAt: -1 } })));
+app.post("/api/banners", protect, requireSectionPermission("banners", "create"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await HeroBanner.create(prepareBannerBody(req.body)) })));
+app.put("/api/banners/:id", protect, requireSectionPermission("banners", "edit"), asyncHandler(async (req, res) => res.json({ success: true, item: await HeroBanner.findByIdAndUpdate(req.params.id, prepareBannerBody(req.body), { new: true, runValidators: true }) })));
+app.delete("/api/banners/:id", protect, requireSectionPermission("banners", "canDelete"), asyncHandler(async (req, res) => {
   await HeroBanner.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: "Banner deleted" });
 }));
 
 app.get("/api/courses/active", optionalUser, asyncHandler((req, res) => courseList(req, res, true)));
 app.get("/api/courses", optionalUser, asyncHandler((req, res) => courseList(req, res, false)));
-app.post("/api/courses", protect, authorize("main_admin"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await Course.create(prepareCourseBody(req.body, req.user._id, true)) })));
-app.put("/api/courses/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => res.json({ success: true, item: await Course.findByIdAndUpdate(req.params.id, prepareCourseBody(req.body, req.user._id), { new: true, runValidators: true }) })));
-app.delete("/api/courses/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.post("/api/courses", protect, requireSectionPermission("courses", "create"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await Course.create(prepareCourseBody(req.body, req.user._id, true)) })));
+app.put("/api/courses/:id", protect, requireSectionPermission("courses", "edit"), asyncHandler(async (req, res) => res.json({ success: true, item: await Course.findByIdAndUpdate(req.params.id, prepareCourseBody(req.body, req.user._id), { new: true, runValidators: true }) })));
+app.delete("/api/courses/:id", protect, requireSectionPermission("courses", "canDelete"), asyncHandler(async (req, res) => {
   await Promise.all([Course.findByIdAndDelete(req.params.id), Lesson.deleteMany({ course: req.params.id }), Enrollment.deleteMany({ course: req.params.id }), Progress.deleteMany({ course: req.params.id })]);
   res.json({ success: true, message: "Course deleted" });
 }));
@@ -1764,7 +2219,7 @@ app.get("/api/courses/:courseId/lessons", optionalUser, asyncHandler(async (req,
   if (!lessons) return res.status(404).json({ success: false, message: "Course not found" });
   res.json({ success: true, items: lessons, lessons });
 }));
-app.post("/api/courses/:courseId/lessons", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.post("/api/courses/:courseId/lessons", protect, requireSectionPermission("lessons", "create"), asyncHandler(async (req, res) => {
   const course = await Course.findOne(idOrSlug(req.params.courseId)).lean();
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
   const item = await Lesson.create(prepareLessonBody(req.body, course._id, req.user._id, true));
@@ -1826,8 +2281,8 @@ app.get("/api/lessons/:id", optionalUser, asyncHandler(async (req, res) => {
 
   res.json({ success: true, lesson });
 }));
-app.put("/api/lessons/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => res.json({ success: true, item: await Lesson.findByIdAndUpdate(req.params.id, prepareLessonBody(req.body, null, req.user._id), { new: true, runValidators: true }) })));
-app.delete("/api/lessons/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.put("/api/lessons/:id", protect, requireSectionPermission("lessons", "edit"), asyncHandler(async (req, res) => res.json({ success: true, item: await Lesson.findByIdAndUpdate(req.params.id, prepareLessonBody(req.body, null, req.user._id), { new: true, runValidators: true }) })));
+app.delete("/api/lessons/:id", protect, requireSectionPermission("lessons", "canDelete"), asyncHandler(async (req, res) => {
   await Promise.all([Lesson.findByIdAndDelete(req.params.id), Progress.deleteMany({ lesson: req.params.id })]);
   res.json({ success: true, message: "Lesson deleted" });
 }));
@@ -1986,7 +2441,7 @@ app.get(
 app.put(
   "/api/admin/course-requests/:id/approve",
   protect,
-  authorize("main_admin"),
+  requireSectionPermission("course-requests", "edit"),
   asyncHandler(async (req, res) => {
     const request = await CourseEnrollmentRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: "Request not found" });
@@ -2018,7 +2473,7 @@ app.put(
 app.put(
   "/api/admin/course-requests/:id/reject",
   protect,
-  authorize("main_admin"),
+  requireSectionPermission("course-requests", "edit"),
   asyncHandler(async (req, res) => {
     const { reason } = req.body;
     if (!reason || !reason.trim()) {
@@ -2050,7 +2505,7 @@ app.put(
 app.put(
   "/api/admin/course-requests/:id/disapprove",
   protect,
-  authorize("main_admin"),
+  requireSectionPermission("course-requests", "edit"),
   asyncHandler(async (req, res) => {
     const { reason } = req.body;
     
@@ -2842,99 +3297,8 @@ app.get("/api/teacher/video-blogs", protect, authorize("teacher", "main_admin"),
 app.post("/api/teacher/video-blogs", protect, authorize("teacher", "main_admin"), requirePermission("canCreateVideoBlog"), asyncHandler(async (req, res) => res.status(201).json({ success: true, item: await VideoBlog.create({ ...req.body, slug: req.body.slug || slugify(req.body.title) }) })));
 
 /* ============================================================
-   Staff roles, section permissions and the audit trail
+   Activity trail and client fingerprinting
    ============================================================ */
-
-/* Higher number = more authority. A staff member can only ever
-   manage accounts strictly below their own level. */
-const ROLE_LEVEL = {
-  main_admin: 100,
-  admin: 80,
-  manager: 60,
-  editor: 40,
-  viewer: 20,
-  teacher: 10,
-  student: 0,
-  devotee: 0,
-  user: 0
-};
-const STAFF_ROLES = ["main_admin", "admin", "manager", "editor", "viewer"];
-const isStaff = (user) => STAFF_ROLES.includes(user?.role);
-const roleLevel = (user) => ROLE_LEVEL[user?.role] ?? 0;
-
-/* Every admin area the panel can grant, keyed the way the UI routes it. */
-const ADMIN_SECTIONS = [
-  "dashboard", "users", "roles", "activity-log", "sessions",
-  "banners", "home-sections", "about-sections", "pages",
-  "courses", "lessons", "course-requests", "exams",
-  "trips", "trip-bookings", "booking-taxes", "upcoming-classes",
-  "visionaries", "blogs", "video-blogs", "media",
-  "subscribers", "contact-messages", "comments", "chat",
-  "footer", "site-settings", "traffic", "reports", "assets",
-  "books", "book-orders", "book-payment-settings",
-  "testimonials"
-];
-
-/* Maps an /api/admin/<resource> path onto a section key. */
-const SECTION_ALIASES = {
-  pilgrimages: "trips",
-  "pilgrimage-bookings": "trip-bookings",
-  "media/images": "media",
-  "media/videos": "media",
-  "gallery-images": "media",
-  "gallery-videos": "media",
-  preachers: "visionaries",
-  "video-intro": "home-secti" + "ons",
-  "trips-overview": "trips",
-  "trip-stats": "trips",
-  "book-orders": "book-orders",
-  "book-payment-settings": "book-payment-settings",
-  books: "books",
-  "contact-settings": "contact-messages",
-  contact: "contact-messages",
-  testimonials: "testimonials"
-};
-const sectionFor = (resource = "") => {
-  const head = String(resource).split("?")[0];
-  if (SECTION_ALIASES[head]) return SECTION_ALIASES[head];
-  const first = head.split("/")[0];
-  return SECTION_ALIASES[first] || first;
-};
-
-const ACTION_FOR_METHOD = { GET: "view", POST: "create", PUT: "edit", PATCH: "edit", DELETE: "canDelete" };
-
-/* main_admin is never restricted. Other staff need the section
-   granted, with the right verb on it. */
-const canAccessSection = (user, section, action = "view") => {
-  if (!user) return false;
-  if (user.role === "main_admin") return true;
-  if (!isStaff(user)) return false;
-  const grant = (user.sectionAccess || []).find((g) => g.section === section);
-  if (!grant) return false;
-  if (action === "view") return grant.view !== false;
-  return Boolean(grant[action]);
-};
-
-/* Replaces the old main_admin-only gate on /api/admin/*. */
-const staffGate = (req, res, next) => {
-  if (!isStaff(req.user)) {
-    return res.status(403).json({ success: false, message: "Admin access required" });
-  }
-  if (req.user.role === "main_admin") return next();
-
-  const section = sectionFor(req.params.resource || req.path.replace(/^\/api\/admin\//, ""));
-  const action = ACTION_FOR_METHOD[req.method] || "view";
-  if (!canAccessSection(req.user, section, action)) {
-    return res.status(403).json({
-      success: false,
-      message:
-        action === "view"
-          ? "You do not have access to this section."
-          : `You do not have permission to ${action === "canDelete" ? "delete" : action} here.`
-    });
-  }
-  return next();
-};
 
 /* ---- request fingerprinting, used by the log and by sessions ---- */
 const clientIp = (req) =>
@@ -2982,8 +3346,6 @@ const recordActivity = async (req, payload) => {
     /* logging must never break the request it describes */
   }
 };
-
-const adminOnly = [protect, staffGate];
 
 /* Mount Books module routes */
 app.use("/api", booksRouter);
@@ -3651,6 +4013,7 @@ const fields = {
   "contact-messages": ["name", "email", "subject", "message"],
   "course-requests": ["fullName", "email", "phone"],
   pilgrimages: ["title", "route", "shortDescription"],
+  journeys: ["title", "slug", "routeText", "destination", "startingLocation", "shortDescription"],
   "booking-taxes": ["label", "note"],
   "pilgrimage-bookings": ["bookingRef", "fullName", "email", "phone"]
 };
@@ -3679,7 +4042,7 @@ const prepareAdminBody = (name, body, userId) => {
   if (name === "courses") return prepareCourseBody(body, userId, !body._id);
   if (name === "lessons") return prepareLessonBody(body, null, userId, !body._id);
   const data = { ...body };
-  if (["courses", "blogs", "video-blogs", "upcoming-classes", "pages", "legal-pages", "pilgrimages"].includes(name) && !data.slug) data.slug = slugify(data.title);
+  if (["courses", "blogs", "video-blogs", "upcoming-classes", "pages", "legal-pages", "pilgrimages", "journeys"].includes(name) && !data.slug) data.slug = slugify(data.title);
   if (name === "preachers" && !data.slug) data.slug = slugify(data.name);
   if (name === "lessons" && !data.slug) data.slug = slugify(data.title);
   if (name === "home-sections") data.pageName = data.pageName || "home";
@@ -4721,7 +5084,7 @@ app.get("/api/teacher/analytics", protect, authorize("teacher"), asyncHandler(as
 // 2. ADMIN TEACHER MANAGEMENT & PROGRESS APIS
 
 // GET Assignable Courses
-app.get("/api/admin/courses/assignable", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/courses/assignable", protect, requireSectionPermission("teachers", "view"), asyncHandler(async (req, res) => {
   const courses = await Course.find({}).lean();
   const assignable = await Promise.all(courses.map(async (c) => {
     const enrolledCount = await Enrollment.countDocuments({ course: c._id });
@@ -4740,7 +5103,7 @@ app.get("/api/admin/courses/assignable", protect, authorize("main_admin"), async
 }));
 
 // GET List of Teachers
-app.get("/api/admin/teachers", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/teachers", protect, requireSectionPermission("teachers", "view"), asyncHandler(async (req, res) => {
   const teachers = await User.find({ role: "teacher" })
     .select("name email phone mobile status assignedCourses teacherType specialization permissions isOnline lastSeen bio createdAt")
     .lean();
@@ -4780,7 +5143,7 @@ app.get("/api/admin/teachers", protect, authorize("main_admin"), asyncHandler(as
 }));
 
 // POST Create Preacher / Teacher
-app.post("/api/admin/teachers", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.post("/api/admin/teachers", protect, requireSectionPermission("teachers", "create"), asyncHandler(async (req, res) => {
   const { name, email, phone, mobile, password, profileImage, bio, specialization, assignedCourses, teacherType, permissions, status } = req.body;
   
   const existing = await User.findOne({ email });
@@ -4838,7 +5201,7 @@ app.post("/api/admin/teachers", protect, authorize("main_admin"), asyncHandler(a
 }));
 
 // PATCH Update Preacher / Teacher
-app.patch("/api/admin/teachers/:teacherId", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.patch("/api/admin/teachers/:teacherId", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const { name, email, phone, mobile, profileImage, bio, specialization, assignedCourses, teacherType, permissions, status } = req.body;
   const teacher = await User.findById(req.params.teacherId);
   if (!teacher) return res.status(404).json({ success: false, message: "Teacher not found" });
@@ -4915,7 +5278,7 @@ app.patch("/api/admin/teachers/:teacherId", protect, authorize("main_admin"), as
 }));
 
 // DELETE Preacher / Teacher
-app.delete("/api/admin/teachers/:teacherId", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.delete("/api/admin/teachers/:teacherId", protect, requireSectionPermission("teachers", "canDelete"), asyncHandler(async (req, res) => {
   await User.findByIdAndDelete(req.params.teacherId);
   await Course.updateMany(
     { primaryTeacherId: req.params.teacherId },
@@ -4929,7 +5292,7 @@ app.delete("/api/admin/teachers/:teacherId", protect, authorize("main_admin"), a
 }));
 
 // POST Assign teacher / course reassignments explicitly
-app.post("/api/admin/courses/:courseId/assign-teacher", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.post("/api/admin/courses/:courseId/assign-teacher", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const { primaryTeacherId, supportTeacherIds, reason } = req.body;
   const course = await Course.findById(req.params.courseId);
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
@@ -4966,7 +5329,7 @@ app.post("/api/admin/courses/:courseId/assign-teacher", protect, authorize("main
 }));
 
 // GET Teacher Assignment Audit History
-app.get("/api/admin/courses/:courseId/teacher-history", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/courses/:courseId/teacher-history", protect, requireSectionPermission("teachers", "view"), asyncHandler(async (req, res) => {
   const history = await TeacherAssignmentHistory.find({ course: req.params.courseId })
     .populate("oldTeacherIds", "name email")
     .populate("newTeacherIds", "name email")
@@ -4977,7 +5340,7 @@ app.get("/api/admin/courses/:courseId/teacher-history", protect, authorize("main
 }));
 
 // PATCH Block Teacher
-app.patch("/api/admin/teachers/:teacherId/block", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.patch("/api/admin/teachers/:teacherId/block", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const { reason } = req.body;
   const teacher = await User.findByIdAndUpdate(
     req.params.teacherId,
@@ -4988,7 +5351,7 @@ app.patch("/api/admin/teachers/:teacherId/block", protect, authorize("main_admin
 }));
 
 // PATCH Unblock Teacher
-app.patch("/api/admin/teachers/:teacherId/unblock", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.patch("/api/admin/teachers/:teacherId/unblock", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const teacher = await User.findByIdAndUpdate(
     req.params.teacherId,
     { status: "active", $unset: { blockedAt: 1, blockedReason: 1 } },
@@ -4998,7 +5361,7 @@ app.patch("/api/admin/teachers/:teacherId/unblock", protect, authorize("main_adm
 }));
 
 // PATCH Reset Password
-app.patch("/api/admin/teachers/:teacherId/reset-password", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.patch("/api/admin/teachers/:teacherId/reset-password", protect, requireSectionPermission("teachers", "edit"), asyncHandler(async (req, res) => {
   const { password } = req.body;
   if (!password || password.length < 6) return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
   
@@ -5011,7 +5374,7 @@ app.patch("/api/admin/teachers/:teacherId/reset-password", protect, authorize("m
 }));
 
 // GET Preacher Performance Report
-app.get("/api/admin/teacher-performance/:teacherId", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/teacher-performance/:teacherId", protect, requireSectionPermission("teachers", "view"), asyncHandler(async (req, res) => {
   const teacherId = req.params.teacherId;
   const teacher = await User.findById(teacherId).select("name email specialization teacherType").lean();
   if (!teacher) return res.status(404).json({ success: false, message: "Teacher not found" });
@@ -5528,7 +5891,7 @@ app.get("/api/teacher/student-progress/:studentId", protect, authorize("teacher"
   res.json({ success: true, devotee, items: details });
 }));
 
-app.get("/api/admin/inactive-students", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/inactive-students", protect, requireSectionPermission("users", "view"), asyncHandler(async (req, res) => {
   const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
   const inactive = await UserActivity.find({ lastActiveAt: { $lt: fiveDaysAgo } })
     .populate("user", "name email phone profileImage")
@@ -5669,7 +6032,7 @@ app.get("/api/admin/sessions", protect, staffGate, asyncHandler(async (req, res)
   res.json({ success: true, items });
 }));
 
-app.delete("/api/admin/sessions/:id", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.delete("/api/admin/sessions/:id", protect, requireSectionPermission("sessions", "canDelete"), asyncHandler(async (req, res) => {
   const session = await LoginSession.findByIdAndUpdate(
     req.params.id,
     { active: false, endedAt: new Date() },
@@ -5735,13 +6098,24 @@ app.post("/api/admin/staff", protect, staffGate, asyncHandler(async (req, res) =
 
   const staffStatus = status === "blocked" ? "blocked" : "active";
 
+  let accessList = Array.isArray(sectionAccess) ? sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section)) : [];
+  if (role === "admin" && accessList.length === 0) {
+    accessList = ADMIN_SECTIONS.map((sec) => ({
+      section: sec,
+      view: true,
+      create: true,
+      edit: true,
+      canDelete: true
+    }));
+  }
+
   const staff = await User.create({
     name: name.trim(),
     email: String(email).toLowerCase().trim(),
     password,
     phone,
     role,
-    sectionAccess: Array.isArray(sectionAccess) ? sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section)) : [],
+    sectionAccess: accessList,
     managedBy: req.user._id,
     status: staffStatus,
     blockedAt: staffStatus === "blocked" ? new Date() : undefined,
@@ -5828,7 +6202,25 @@ app.put("/api/admin/staff/:id", protect, staffGate, asyncHandler(async (req, res
   }
 
   if (Array.isArray(req.body.sectionAccess)) {
-    target.sectionAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    let nextAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    if (target.role === "admin" && nextAccess.length === 0) {
+      nextAccess = ADMIN_SECTIONS.map((sec) => ({
+        section: sec,
+        view: true,
+        create: true,
+        edit: true,
+        canDelete: true
+      }));
+    }
+    target.sectionAccess = nextAccess;
+  } else if (req.body.role === "admin" && (!target.sectionAccess || target.sectionAccess.length === 0)) {
+    target.sectionAccess = ADMIN_SECTIONS.map((sec) => ({
+      section: sec,
+      view: true,
+      create: true,
+      edit: true,
+      canDelete: true
+    }));
   }
 
   if (req.body.password && String(req.body.password).trim()) {
@@ -5965,7 +6357,25 @@ app.put("/api/admin/staff/:id/access", protect, staffGate, asyncHandler(async (r
     target.role = req.body.role;
   }
   if (Array.isArray(req.body.sectionAccess)) {
-    target.sectionAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    let nextAccess = req.body.sectionAccess.filter((g) => ADMIN_SECTIONS.includes(g.section));
+    if (target.role === "admin" && nextAccess.length === 0) {
+      nextAccess = ADMIN_SECTIONS.map((sec) => ({
+        section: sec,
+        view: true,
+        create: true,
+        edit: true,
+        canDelete: true
+      }));
+    }
+    target.sectionAccess = nextAccess;
+  } else if (req.body.role === "admin" && (!target.sectionAccess || target.sectionAccess.length === 0)) {
+    target.sectionAccess = ADMIN_SECTIONS.map((sec) => ({
+      section: sec,
+      view: true,
+      create: true,
+      edit: true,
+      canDelete: true
+    }));
   }
   if (req.body.status) target.status = req.body.status;
   await target.save();
@@ -6372,7 +6782,7 @@ app.delete("/api/admin/exam-assignments/:id", protect, authorize("main_admin", "
   res.json({ success: true, message: "Deleted" });
 }));
 
-app.get("/api/admin/assets", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/assets", protect, requireSectionPermission("assets", "view"), asyncHandler(async (req, res) => {
   const getFiles = (dir, fileList = []) => {
     if (!fs.existsSync(dir)) return fileList;
     const files = fs.readdirSync(dir);
@@ -6409,7 +6819,7 @@ app.get("/api/admin/assets", protect, authorize("main_admin"), asyncHandler(asyn
   res.json({ success: true, items: files });
 }));
 
-app.delete("/api/admin/assets", protect, authorize("main_admin"), asyncHandler(async (req, res) => {
+app.delete("/api/admin/assets", protect, requireSectionPermission("assets", "canDelete"), asyncHandler(async (req, res) => {
   const { paths } = req.body;
   if (!Array.isArray(paths)) return res.status(400).json({ success: false, message: "Invalid request" });
   
@@ -7209,6 +7619,72 @@ const runMigration = async () => {
       }
     }
 
+    // Seed initial featured Journey if none exists
+    const journeyCount = await Journey.countDocuments().catch(() => 0);
+    if (journeyCount === 0) {
+      await Journey.create({
+        title: "5-Day Sacred Journey to Vrindavana",
+        slug: "5-day-sacred-journey-to-vrindavana",
+        subtitle: "ISKCON Juhu → Vrindavana → ISKCON Juhu",
+        shortDescription: "Travel. Discover. Serve. Experience Krishna Consciousness.",
+        description: "Join us for an unforgettable 5-day spiritual retreat to the holy land of Vrindavana. Guided by senior devotees from ISKCON Juhu, this pilgrimage immerses you in sacred parikramas, temple darshans, devotional discourses, and soulful Yamuna boat kirtans.",
+        status: "published",
+        isFeatured: true,
+        isActive: true,
+        badgeText: "FEATURED PILGRIMAGE",
+        badgeEnabled: true,
+        startingLocation: "ISKCON Juhu",
+        destination: "Vrindavana",
+        returnLocation: "ISKCON Juhu",
+        routeText: "ISKCON Juhu → Vrindavana → ISKCON Juhu",
+        days: 5,
+        nights: 4,
+        startDate: new Date("2026-11-28"),
+        endDate: new Date("2026-12-02"),
+        dateText: "28 Nov 2026 – 2 Dec 2026",
+        mainImage: "/assets/pilgrimage-hero.webp",
+        floatingImage1: "/assets/pilgrimage-kashi-postcard-01.webp",
+        floatingImage2: "/assets/pilgrimage-kashi-postcard-02.webp",
+        basePrice: 18500,
+        priceType: "per_person",
+        currency: "₹",
+        ctaText: "Book Now",
+        maxTravellers: 20,
+        seatsLeft: 12,
+        bookingEnabled: true,
+        templeVisits: "ISKCON Vrindavan, Banke Bihari, Prem Mandir",
+        guideInfo: "Senior Devotees",
+        informationBlocks: [
+          { icon: "calendar", label: "Duration", value: "5 Days / 4 Nights", sortOrder: 1 },
+          { icon: "route", label: "Journey Route", value: "Mumbai → Vrindavana → Mumbai", sortOrder: 2 },
+          { icon: "temple", label: "Temple Visits", value: "ISKCON Vrindavan, Banke Bihari, Prem Mandir", sortOrder: 3 },
+          { icon: "users", label: "Guided by", value: "Senior Devotees", sortOrder: 4 }
+        ],
+        inclusions: [
+          "Deluxe accommodation in Vrindavana",
+          "Pure sattvic prasadam (breakfast, lunch, dinner)",
+          "Guided parikramas & senior devotee lectures",
+          "Private AC group transport throughout"
+        ],
+        exclusions: [
+          "Personal purchases and individual donations",
+          "Optional boat rides or private pujas"
+        ],
+        itinerary: [
+          { dayNumber: 1, title: "Arrival & Welcome Darshan", description: "Arrival in Mathura/Vrindavan, check-in, evening aarti at ISKCON Krishna Balaram Temple." },
+          { dayNumber: 2, title: "Seven Main Temples of Vrindavan", description: "Darshan at Radha Damodar, Radha Raman, Radha Shyamasundar, and Banke Bihari." },
+          { dayNumber: 3, title: "Govardhan Parikrama & Radha Kund", description: "Sacred Govardhan Parikrama by battery rickshaw/walking, bath at Radha Kund and Shyama Kund." },
+          { dayNumber: 4, title: "Varsana & Nandgaon Darshan", description: "Visit to the hilltop palace of Srimati Radharani and Nanda Maharaja's palace in Nandgaon." },
+          { dayNumber: 5, title: "Yamuna Aarti & Return", description: "Morning boat ride and kirtan on the Yamuna, farewell feast, and departure." }
+        ],
+        faqs: [
+          { question: "Who can join this sacred journey?", answer: "Devotees of all ages, families, youth and seniors are warmly welcome. Special care is taken for elderly devotees." },
+          { question: "What is the food arrangement?", answer: "100% sattvic, freshly prepared ISKCON prasadam is served three times daily." },
+          { question: "How are bookings confirmed?", answer: "Once you submit your booking details and payment receipt, our team verifies and sends a confirmation via WhatsApp and email." }
+        ]
+      }).catch(() => null);
+    }
+
     console.log("Migration check passed");
   } catch (err) {
     console.error("Migration failed", err);
@@ -7224,6 +7700,11 @@ mongoose
   })
   .then(async () => {
     await runMigration();
+    try {
+      await writeSitemapToDisk();
+    } catch (e) {
+      console.warn("Initial sitemap sync deferred:", e.message);
+    }
     server.listen(port, () => console.log(`API listening on http://localhost:${port}`));
   })
   .catch((error) => {

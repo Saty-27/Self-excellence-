@@ -1230,6 +1230,140 @@ const pilgrimageSchema = new Schema(
 );
 pilgrimageSchema.index({ tripStatus: 1, startDate: 1 });
 
+/* ============================================================
+   Upcoming Journey / Featured Pilgrimage Model
+   ============================================================ */
+
+const journeyInformationBlockSchema = new Schema(
+  {
+    icon: { type: String, default: "calendar" },
+    label: { type: String, required: true },
+    value: { type: String, required: true },
+    sortOrder: { type: Number, default: 0 }
+  },
+  { _id: true }
+);
+
+const journeySchema = new Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    subtitle: { type: String, default: "" },
+    shortDescription: { type: String, default: "" },
+    description: { type: String, default: "" },
+
+    status: {
+      type: String,
+      enum: ["draft", "published", "archived"],
+      default: "published",
+      index: true
+    },
+    isFeatured: { type: Boolean, default: false, index: true },
+    isActive: { type: Boolean, default: true, index: true },
+
+    badgeText: { type: String, default: "FEATURED PILGRIMAGE" },
+    badgeEnabled: { type: Boolean, default: true },
+
+    startingLocation: { type: String, default: "ISKCON Juhu" },
+    destination: { type: String, default: "Vrindavana" },
+    returnLocation: { type: String, default: "ISKCON Juhu" },
+    routeText: { type: String, default: "ISKCON Juhu → Vrindavana → ISKCON Juhu" },
+    intermediateLocations: [String],
+
+    days: { type: Number, default: 5 },
+    nights: { type: Number, default: 4 },
+    startDate: Date,
+    endDate: Date,
+    dateText: String,
+
+    mainImage: { type: String, default: "/assets/pilgrimage-hero.webp" },
+    floatingImage1: { type: String, default: "/assets/pilgrimage-kashi-postcard-01.webp" },
+    floatingImage2: { type: String, default: "/assets/pilgrimage-kashi-postcard-02.webp" },
+    gallery: [
+      {
+        _id: false,
+        imageUrl: { type: String, required: true },
+        altText: String,
+        sortOrder: { type: Number, default: 0 }
+      }
+    ],
+
+    informationBlocks: [journeyInformationBlockSchema],
+
+    basePrice: { type: Number, default: 18500, min: 0 },
+    priceType: {
+      type: String,
+      enum: ["per_person", "per_couple", "per_room", "fixed"],
+      default: "per_person"
+    },
+    currency: { type: String, default: "₹" },
+    discountPrice: { type: Number, min: 0 },
+    originalPrice: { type: Number, min: 0 },
+    taxes: { type: Number, default: 0 },
+    additionalCharges: { type: Number, default: 0 },
+    addOns: [
+      {
+        title: String,
+        price: Number,
+        description: String
+      }
+    ],
+
+    maxTravellers: { type: Number, default: 20, min: 1 },
+    seatsLeft: { type: Number, default: 20 },
+    bookingEnabled: { type: Boolean, default: true },
+    bookingOpenDate: Date,
+    bookingCloseDate: Date,
+
+    ctaText: { type: String, default: "Book Now" },
+    ctaLink: String,
+
+    templeVisits: String,
+    guideInfo: String,
+    itinerary: [
+      {
+        _id: false,
+        dayNumber: { type: Number, required: true },
+        title: String,
+        description: String,
+        morning: String,
+        afternoon: String,
+        evening: String,
+        imageUrl: String,
+        sortOrder: { type: Number, default: 0 }
+      }
+    ],
+    inclusions: [String],
+    exclusions: [String],
+    whoFor: [String],
+    importantInfo: String,
+    faqs: [
+      {
+        _id: false,
+        question: { type: String, required: true },
+        answer: String,
+        sortOrder: { type: Number, default: 0 }
+      }
+    ],
+
+    paymentInstructions: String,
+    upiId: String,
+    paymentQrImage: String,
+    bankAccountName: String,
+    bankAccountNumber: String,
+    bankIfsc: String,
+    bankName: String,
+    bankBranch: String,
+    paymentContactName: String,
+    paymentContactNumber: String,
+
+    sortOrder: { type: Number, default: 0 },
+    ...seo
+  },
+  { timestamps: true }
+);
+journeySchema.index({ status: 1, isFeatured: 1, sortOrder: 1 });
+
 const bookingTaxSchema = new Schema(
   {
     label: { type: String, required: true, trim: true },
@@ -1532,6 +1666,7 @@ export const TrafficLog = make("TrafficLog", trafficLogSchema);
 export const Benefit = make("Benefit", benefitSchema);
 export const Testimonial = make("Testimonial", testimonialSchema);
 export const Pilgrimage = make("Pilgrimage", pilgrimageSchema);
+export const Journey = make("Journey", journeySchema);
 export const BookingTax = make("BookingTax", bookingTaxSchema);
 export const PilgrimageBooking = make("PilgrimageBooking", pilgrimageBookingSchema);
 export const TripAccess = make("TripAccess", tripAccessSchema);
@@ -1587,6 +1722,7 @@ export const modelRegistry = {
   benefits: Benefit,
   testimonials: Testimonial,
   pilgrimages: Pilgrimage,
+  journeys: Journey,
   "booking-taxes": BookingTax,
   "pilgrimage-bookings": PilgrimageBooking,
   "trip-access": TripAccess,
