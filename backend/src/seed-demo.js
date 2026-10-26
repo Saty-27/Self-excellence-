@@ -908,8 +908,8 @@ const run = async () => {
     ["Vivek Nair", "Working professional", "I expected to feel like an outsider. Nobody made me feel like one."],
     ["Meera Joshi", "Teacher", "I bring my students now. The explanations are pitched for people who are new."]
   ].map(([name, designation, quote], i) => ({
-    name, designation, quote, rating: 5, image: IMG.teacher1,
-    status: "active", sortOrder: i + 1
+    name, userName: name, designation, quote, testimonialText: quote, rating: 5, image: IMG.teacher1,
+    status: "approved", showOnHomepage: true, isFeatured: true, sortOrder: i + 1
   })));
   log("benefits and testimonials", 12);
 
