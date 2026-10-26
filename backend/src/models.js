@@ -510,6 +510,9 @@ const pageSectionSchema = new Schema(
   {
     pageName: { type: String, required: true, lowercase: true, trim: true },
     sectionKey: { type: String, required: true, lowercase: true, trim: true },
+    sectionName: String,
+    routePath: String,
+    navLabel: String,
     sectionTitle: String,
     sectionSubtitle: String,
     content: Mixed,
@@ -520,6 +523,8 @@ const pageSectionSchema = new Schema(
     buttonLink: String,
     sortOrder: { type: Number, default: 0 },
     status: activeStatus,
+    homepageVisible: { type: Boolean, default: true },
+    websiteEnabled: { type: Boolean, default: true },
     settings: Mixed
   },
   { timestamps: true }

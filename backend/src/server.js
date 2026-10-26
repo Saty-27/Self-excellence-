@@ -1216,10 +1216,166 @@ app.get("/api/contact-settings", asyncHandler(async (req, res) => {
   }
   res.json({ success: true, settings });
 }));
+/* ============================================================
+   Homepage Section Visibility & CMS Registry
+   ------------------------------------------------------------
+   Allows admins to enable/disable homepage sections independently:
+   1. Enabled Everywhere (Visible on homepage & active on website)
+   2. Homepage Disabled (Hidden from homepage, active on website/navbar)
+   3. Completely Disabled (Hidden from homepage, navbar, and route shows 404)
+   ============================================================ */
+
+import { DEFAULT_HOMEPAGE_SECTIONS } from "./homepageSectionsConfig.js";
+export { DEFAULT_HOMEPAGE_SECTIONS };
+
+export const getMergedHomepageSections = async () => {
+  const dbSections = await PageSection.find({ pageName: "home" }).lean();
+  const dbMap = new Map(dbSections.map((s) => [s.sectionKey, s]));
+
+  return DEFAULT_HOMEPAGE_SECTIONS.map((def) => {
+    const fromDb = dbMap.get(def.sectionKey);
+    if (!fromDb) {
+      return { ...def };
+    }
+    return {
+      ...def,
+      ...fromDb,
+      _id: fromDb._id,
+      sectionName: def.sectionName,
+      routePath: def.routePath,
+      navLabel: def.navLabel,
+      homepageVisible: typeof fromDb.homepageVisible === "boolean" ? fromDb.homepageVisible : (fromDb.status !== "inactive"),
+      websiteEnabled: typeof fromDb.websiteEnabled === "boolean" ? fromDb.websiteEnabled : true,
+      sectionTitle: fromDb.sectionTitle || def.sectionTitle,
+      sectionSubtitle: fromDb.sectionSubtitle || def.sectionSubtitle
+    };
+  });
+};
+
+// Public: Get all homepage sections with visibility status
+app.get("/api/homepage-sections", asyncHandler(async (req, res) => {
+  const items = await getMergedHomepageSections();
+  res.json({ success: true, items, sections: items });
+}));
+
+// Admin: Toggle homepage section visibility (Option 1: Homepage Only vs Option 2: Entire Website)
+app.put("/api/admin/homepage-sections/:key/visibility", protect, requireSectionPermission("home-sections", "edit"), asyncHandler(async (req, res) => {
+  const { key } = req.params;
+  const def = DEFAULT_HOMEPAGE_SECTIONS.find((s) => s.sectionKey === key);
+  if (!def) {
+    return res.status(404).json({ success: false, message: `Unknown section key: ${key}` });
+  }
+
+  const { homepageVisible, websiteEnabled } = req.body;
+  if (typeof homepageVisible !== "boolean" || typeof websiteEnabled !== "boolean") {
+    return res.status(400).json({ success: false, message: "homepageVisible and websiteEnabled boolean values are required." });
+  }
+
+  const updated = await PageSection.findOneAndUpdate(
+    { pageName: "home", sectionKey: key },
+    {
+      $set: {
+        pageName: "home",
+        sectionKey: key,
+        sectionName: def.sectionName,
+        routePath: def.routePath,
+        navLabel: def.navLabel,
+        homepageVisible,
+        websiteEnabled,
+        status: websiteEnabled ? "active" : "inactive"
+      },
+      $setOnInsert: {
+        sectionTitle: def.sectionTitle,
+        sectionSubtitle: def.sectionSubtitle,
+        sortOrder: def.sortOrder
+      }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  let stateLabel = "Enabled Everywhere";
+  if (!websiteEnabled) stateLabel = "Completely Disabled from Website";
+  else if (!homepageVisible) stateLabel = "Disabled from Homepage Only";
+
+  await recordActivity(req, {
+    action: "update",
+    section: "home-sections",
+    resource: "home-sections",
+    resourceId: String(updated._id),
+    label: `${def.sectionName} visibility -> ${stateLabel}`,
+    after: updated.toObject ? updated.toObject() : updated
+  });
+
+  res.json({
+    success: true,
+    item: {
+      ...def,
+      ...updated.toObject(),
+      homepageVisible,
+      websiteEnabled
+    },
+    message: `${def.sectionName} is now ${stateLabel}.`
+  });
+}));
+
+// Admin: Batch update visibility
+app.put("/api/admin/homepage-sections/batch-visibility", protect, requireSectionPermission("home-sections", "edit"), asyncHandler(async (req, res) => {
+  const { sections } = req.body;
+  if (!Array.isArray(sections)) {
+    return res.status(400).json({ success: false, message: "sections array is required." });
+  }
+
+  for (const s of sections) {
+    if (!s.sectionKey) continue;
+    const def = DEFAULT_HOMEPAGE_SECTIONS.find((d) => d.sectionKey === s.sectionKey);
+    if (!def) continue;
+
+    await PageSection.findOneAndUpdate(
+      { pageName: "home", sectionKey: s.sectionKey },
+      {
+        $set: {
+          pageName: "home",
+          sectionKey: s.sectionKey,
+          sectionName: def.sectionName,
+          routePath: def.routePath,
+          navLabel: def.navLabel,
+          homepageVisible: Boolean(s.homepageVisible),
+          websiteEnabled: Boolean(s.websiteEnabled),
+          status: Boolean(s.websiteEnabled) ? "active" : "inactive"
+        },
+        $setOnInsert: {
+          sectionTitle: def.sectionTitle,
+          sectionSubtitle: def.sectionSubtitle,
+          sortOrder: def.sortOrder
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  const items = await getMergedHomepageSections();
+  res.json({ success: true, items, message: "Homepage section visibility settings updated." });
+}));
+
+// Admin: Reset all homepage sections to enabled
+app.post("/api/admin/homepage-sections/reset", protect, requireSectionPermission("home-sections", "edit"), asyncHandler(async (req, res) => {
+  await PageSection.updateMany(
+    { pageName: "home" },
+    { $set: { homepageVisible: true, websiteEnabled: true, status: "active" } }
+  );
+  const items = await getMergedHomepageSections();
+  res.json({ success: true, items, message: "All homepage sections enabled everywhere." });
+}));
+
 app.get(
   "/api/page-sections/:pageName",
   asyncHandler(async (req, res) => {
-    const sections = await PageSection.find({ pageName: req.params.pageName.toLowerCase(), status: "active" }).sort({ sortOrder: 1 }).lean();
+    const pageName = req.params.pageName.toLowerCase();
+    if (pageName === "home") {
+      const items = await getMergedHomepageSections();
+      return res.json({ success: true, sections: items, items });
+    }
+    const sections = await PageSection.find({ pageName, status: "active" }).sort({ sortOrder: 1 }).lean();
     res.json({ success: true, sections });
   })
 );

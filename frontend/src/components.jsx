@@ -37,11 +37,64 @@ import {
   Instagram,
   Youtube,
   Linkedin,
-  Globe
+  Globe,
+  AlertTriangle
 } from "lucide-react";
 import { apiFetch, assetUrl, trackPage, uploadFile } from "./api";
 import { footer as fallbackFooter } from "./fallback";
 import { useAuth } from "./AuthContext";
+import { useHomepageSections } from "./useHomepageSections";
+
+export const PageUnavailable = ({ pageName = "Page", sectionKey }) => {
+  const { user } = useAuth();
+  const isStaffUser = ["main_admin", "admin", "manager", "editor"].includes(user?.role);
+
+  return (
+    <section className="grid min-h-[65vh] place-items-center bg-soft/40 px-4 py-16 text-center">
+      <div className="max-w-md rounded-3xl bg-white p-8 shadow-premium border border-black/5 animate-scale-up">
+        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-amber-100 text-amber-600">
+          <AlertTriangle size={32} />
+        </div>
+        <p className="mb-2 text-xs font-black uppercase tracking-wider text-amber-600">
+          Notice: Page Unavailable
+        </p>
+        <h1 className="text-2xl font-black text-ink">
+          {pageName} is Currently Inactive
+        </h1>
+        <p className="mt-3 text-xs font-semibold leading-relaxed text-muted">
+          This section has been temporarily disabled by the website administrator. Please check back later or explore other sections of our website.
+        </p>
+
+        {isStaffUser && sectionKey && (
+          <div className="mt-5 rounded-2xl bg-amber-50 p-3.5 text-left border border-amber-200/80">
+            <div className="flex items-center gap-2 text-xs font-black text-amber-900">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+              Staff Notice
+            </div>
+            <p className="mt-1 text-[11px] font-medium text-amber-800">
+              This page is disabled on the entire website via Homepage Sections (<code className="font-mono font-bold">{sectionKey}</code>).
+            </p>
+            <Link
+              to="/admin/home-sections"
+              className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-black text-primary hover:underline"
+            >
+              Configure in Admin Panel &rarr;
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/"
+            className="rounded-full bg-primary px-6 py-2.5 text-xs font-black text-white hover:bg-primary/90 transition shadow-sm"
+          >
+            Back to Website
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 export const SEO = ({ title = "ISKCON Juhu Self-Excellence", description = "A premium spiritual LMS for students and seekers." }) => (
   <Helmet>
@@ -379,6 +432,7 @@ const MobileNavDropdown = ({ label, sublinks, closeMenu }) => {
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
+  const { isPageEnabled } = useHomepageSections();
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(null);
   const [scrolled, setScrolled] = useState(false);
@@ -463,30 +517,40 @@ export const Navbar = () => {
   );
 
   const processedLinks = useMemo(() => {
-    return links.map((link) => {
+    const enriched = links.map((link) => {
       const labelLower = link.label?.toLowerCase() || "";
       const urlLower = link.url?.toLowerCase() || "";
       if (labelLower === "blogs" || urlLower === "/blogs" || urlLower === "/video-blogs") {
+        const sub = [
+          { label: "Blog Articles", url: "/blogs" },
+          { label: "Video Blogs", url: "/video-blogs" }
+        ].filter((s) => isPageEnabled(s.url));
+
         return {
           ...link,
-          sublinks: [
-            { label: "Blog Articles", url: "/blogs" },
-            { label: "Video Blogs", url: "/video-blogs" }
-          ]
+          sublinks: sub.length > 0 ? sub : undefined
         };
       }
       if (labelLower === "media" || urlLower.startsWith("/gallery")) {
+        const sub = [
+          { label: "Image Gallery", url: "/gallery/images" },
+          { label: "Video Gallery", url: "/gallery/videos" }
+        ].filter((s) => isPageEnabled(s.url));
+
         return {
           ...link,
-          sublinks: [
-            { label: "Image Gallery", url: "/gallery/images" },
-            { label: "Video Gallery", url: "/gallery/videos" }
-          ]
+          sublinks: sub.length > 0 ? sub : undefined
         };
       }
       return link;
     });
-  }, [links]);
+
+    return enriched.filter((link) => {
+      if (link.sublinks && link.sublinks.length > 0) return true;
+      if (link.url === "/" || link.url === "") return true;
+      return isPageEnabled(link.url);
+    });
+  }, [links, isPageEnabled]);
 
   const submitSearch = (event) => {
     event.preventDefault();

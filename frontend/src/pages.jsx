@@ -83,6 +83,7 @@ import { VideoBlogTile } from "./videoBlogs";
 import { apiFetch, assetUrl, uploadFile, API_URL } from "./api";
 import { useAuth } from "./AuthContext";
 import { usePermissions } from "./usePermissions";
+import { useHomepageSections } from "./useHomepageSections";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
@@ -163,6 +164,7 @@ const splitHeading = (title, lead, accent) => {
 export const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { isSectionVisible } = useHomepageSections();
   const sections = useList("/page-sections/home", fallbackHomeSections).items;
   const map = sectionMap(sections);
   const bannersState = useList("/banners/active", []);
@@ -252,9 +254,9 @@ export const HomePage = () => {
   return (
     <>
       <SEO title="ISKCON Juhu Self-Excellence LMS" description="Spiritual learning, Self-Excellence courses, Sunday classes, and student LMS." />
-      <ISKCONHero />
+      {isSectionVisible("hero") && <ISKCONHero />}
 
-      {active(map.upcoming_classes) && (
+      {isSectionVisible("upcoming_classes") && active(map.upcoming_classes) && (
         <UpcomingClassesSection
           items={upcoming}
           onActionClick={handleRegisterClick}
@@ -266,62 +268,72 @@ export const HomePage = () => {
         />
       )}
 
-      <PilgrimageSection
-        journey={
-          dynamicFeaturedJourney || (featuredPilgrimage
-            ? {
-                ...featuredJourney,
-                badge: featuredPilgrimage.badge || featuredJourney.badge,
-                badgeText: featuredPilgrimage.badge || featuredJourney.badge,
-                title: featuredPilgrimage.title,
-                route: featuredPilgrimage.route || featuredJourney.route,
-                routeText: featuredPilgrimage.route || featuredJourney.route,
-                mainImage: featuredPilgrimage.image,
-                floatingImage1: featuredPilgrimage.image,
-                floatingImage2: featuredPilgrimage.gallery?.[0]?.imageUrl || featuredPilgrimage.image,
-                duration: featuredPilgrimage.days ? `${featuredPilgrimage.days} Days` : featuredJourney.duration,
-                nights: featuredPilgrimage.nights ? `${featuredPilgrimage.nights} Nights` : featuredJourney.nights,
-                routeDetail: featuredPilgrimage.routeDetail || featuredJourney.routeDetail,
-                visitDetail: featuredPilgrimage.visitDetail || featuredJourney.visitDetail,
-                guideDetail: featuredPilgrimage.guideDetail || featuredJourney.guideDetail,
-                ctaText: "Book Now"
+      {isSectionVisible("featured_journey") && (
+        <>
+          <PilgrimageSection
+            journey={
+              dynamicFeaturedJourney || (featuredPilgrimage
+                ? {
+                    ...featuredJourney,
+                    badge: featuredPilgrimage.badge || featuredJourney.badge,
+                    badgeText: featuredPilgrimage.badge || featuredJourney.badge,
+                    title: featuredPilgrimage.title,
+                    route: featuredPilgrimage.route || featuredJourney.route,
+                    routeText: featuredPilgrimage.route || featuredJourney.route,
+                    mainImage: featuredPilgrimage.image,
+                    floatingImage1: featuredPilgrimage.image,
+                    floatingImage2: featuredPilgrimage.gallery?.[0]?.imageUrl || featuredPilgrimage.image,
+                    duration: featuredPilgrimage.days ? `${featuredPilgrimage.days} Days` : featuredJourney.duration,
+                    nights: featuredPilgrimage.nights ? `${featuredPilgrimage.nights} Nights` : featuredJourney.nights,
+                    routeDetail: featuredPilgrimage.routeDetail || featuredJourney.routeDetail,
+                    visitDetail: featuredPilgrimage.visitDetail || featuredJourney.visitDetail,
+                    guideDetail: featuredPilgrimage.guideDetail || featuredJourney.guideDetail,
+                    ctaText: "Book Now"
+                  }
+                : featuredJourney)
+            }
+            loading={journeyLoading}
+            onBook={() => {
+              if (dynamicFeaturedJourney?.slug) {
+                navigate(`/journeys/${dynamicFeaturedJourney.slug}`);
+              } else if (featuredPilgrimage?.slug) {
+                navigate(`/trips/${featuredPilgrimage.slug}`);
+              } else if (featuredPilgrimage) {
+                setBookingOpen(true);
+              } else {
+                navigate("/trips");
               }
-            : featuredJourney)
-        }
-        loading={journeyLoading}
-        onBook={() => {
-          if (dynamicFeaturedJourney?.slug) {
-            navigate(`/journeys/${dynamicFeaturedJourney.slug}`);
-          } else if (featuredPilgrimage?.slug) {
-            navigate(`/trips/${featuredPilgrimage.slug}`);
-          } else if (featuredPilgrimage) {
-            setBookingOpen(true);
-          } else {
-            navigate("/trips");
-          }
-        }}
-        onViewAll={() => navigate("/trips")}
-      />
+            }}
+            onViewAll={() => navigate("/trips")}
+          />
 
-      <PilgrimageBookingModal
-        pilgrimage={featuredPilgrimage}
-        open={bookingOpen && Boolean(featuredPilgrimage)}
-        onClose={() => setBookingOpen(false)}
-      />
+          <PilgrimageBookingModal
+            pilgrimage={featuredPilgrimage}
+            open={bookingOpen && Boolean(featuredPilgrimage)}
+            onClose={() => setBookingOpen(false)}
+          />
+        </>
+      )}
 
-      <FeaturedTripsSection trips={featuredTripsState.items} loading={featuredTripsState.loading} />
+      {isSectionVisible("trips") && (
+        <FeaturedTripsSection trips={featuredTripsState.items} loading={featuredTripsState.loading} />
+      )}
 
-      {active(map.courses) && (
+      {isSectionVisible("courses") && active(map.courses) && (
         <CoursesSection courses={courses} loading={coursesState.loading} />
       )}
 
-      <BooksSection />
+      {isSectionVisible("books") && (
+        <BooksSection />
+      )}
 
-      <WhyJoinSection />
+      {isSectionVisible("why_join") && (
+        <WhyJoinSection />
+      )}
 
       {/* The old Video Blogs band was merged into this one, so it now
           answers to that section's CMS toggle. */}
-      {active(map.video_blogs) && (
+      {isSectionVisible("video_blogs") && active(map.video_blogs) && (
         <LatestVideoSection
           videos={videoBlogs}
           /* Heading comes from Admin -> Home Sections, falling back to
@@ -334,19 +346,19 @@ export const HomePage = () => {
         />
       )}
 
-      {active(map.preachers) && (
+      {isSectionVisible("preachers") && active(map.preachers) && (
         <TeachersSection teachers={preachers} />
       )}
 
-      {active(map.benefits) && (
+      {isSectionVisible("benefits") && active(map.benefits) && (
         <BenefitsSection benefits={benefits} />
       )}
 
-      {active(map.blogs) && (
+      {isSectionVisible("blogs") && active(map.blogs) && (
         <LatestBlogsSection blogs={blogs} loading={blogsState.loading} />
       )}
 
-      {active(map.media_highlight) && (
+      {isSectionVisible("media_highlight") && active(map.media_highlight) && (
         <MediaReflectionsSection
           images={galleryImages}
           videos={galleryVideos}

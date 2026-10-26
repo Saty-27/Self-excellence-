@@ -1,0 +1,46 @@
+# ISKCON Juhu Self-Excellence Robots Directive
+# Dynamically Generated for Maximum Search & AI Engine Optimization
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /student/
+Disallow: /teacher/
+Disallow: /api/admin/
+Disallow: /login
+Disallow: /register
+Disallow: /verify-otp
+Disallow: /forgot-password
+Disallow: /request-password-reset
+
+# OpenAI Search & Crawlers (ChatGPT Web Browsing & Search)
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /student/
+Disallow: /teacher/
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic Claude AI Search
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+Disallow: /student/
+Disallow: /teacher/
+
+# Perplexity AI Engine
+User-agent: PerplexityBot
+Allow: /
+
+# Google Gemini & Search Extended
+User-agent: Google-Extended
+Allow: /
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Allow: /
+
+# Canonical Sitemap
+Sitemap: https://iskconselfexcellence.online/sitemap.xml
