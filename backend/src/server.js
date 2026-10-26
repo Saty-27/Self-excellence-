@@ -82,6 +82,7 @@ import {
   getBaseUrl,
   writeSitemapToDisk
 } from "./sitemap.js";
+import { purgePrettyVisionData } from "./clean-prettyvision.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -7090,6 +7091,8 @@ app.use((error, req, res, next) => res.status(error.statusCode || 500).json({ su
 
 const runMigration = async () => {
   try {
+    await purgePrettyVisionData().catch((err) => console.warn("PrettyVision purge note:", err.message));
+
     const lessons = await Lesson.find({});
     for (const lesson of lessons) {
       const existing = await CourseContent.findOne({ lesson: lesson._id });

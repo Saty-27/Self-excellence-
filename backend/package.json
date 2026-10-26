@@ -9,6 +9,8 @@
     "start": "node src/server.js",
     "seed": "node src/seed.js",
     "seed:local": "node src/seed-self-excellence.js",
+    "clean:prettyvision": "node src/clean-prettyvision.js",
+    "export:seed": "node src/export-db.js",
     "seed:demo": "node src/seed-demo.js",
     "seed:books": "node src/seed-books.js",
     "test": "node --test tests/*.test.js"
