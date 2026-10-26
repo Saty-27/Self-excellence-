@@ -24,7 +24,11 @@ function reviveMongoTypes(obj) {
     for (const [k, v] of Object.entries(obj)) {
       if (k === "_id" && typeof v === "string" && /^[0-9a-fA-F]{24}$/.test(v)) {
         revived[k] = new ObjectId(v);
-      } else if ((k === "createdAt" || k === "updatedAt" || k === "date" || k === "startDate" || k === "endDate") && typeof v === "string" && !isNaN(Date.parse(v))) {
+      } else if (
+        (k === "createdAt" || k === "updatedAt" || k === "date" || k === "startDate" || k === "endDate") &&
+        typeof v === "string" &&
+        !isNaN(Date.parse(v))
+      ) {
         revived[k] = new Date(v);
       } else {
         revived[k] = reviveMongoTypes(v);
@@ -61,16 +65,50 @@ export async function importSelfExcellenceSeed() {
     const revivedDocs = docs.map(reviveMongoTypes);
 
     for (const doc of revivedDocs) {
-      if (doc._id) {
-        await col.replaceOne({ _id: doc._id }, doc, { upsert: true });
-      } else {
-        await col.insertOne(doc);
+      try {
+        let matchQuery = { _id: doc._id };
+        if (colName === "users" && doc.email) {
+          matchQuery = { email: doc.email.toLowerCase().trim() };
+        } else if (
+          (colName === "courses" ||
+            colName === "books" ||
+            colName === "blogs" ||
+            colName === "videoblogs" ||
+            colName === "journeys" ||
+            colName === "pilgrimages") &&
+          doc.slug
+        ) {
+          matchQuery = { slug: doc.slug };
+        } else if (colName === "pagesections" && doc.pageName && doc.sectionKey) {
+          matchQuery = { pageName: doc.pageName, sectionKey: doc.sectionKey };
+        } else if (doc.singletonKey) {
+          matchQuery = { singletonKey: doc.singletonKey };
+        }
+
+        const existing = await col.findOne(matchQuery);
+        if (existing) {
+          const { _id, ...fields } = doc;
+          await col.updateOne({ _id: existing._id }, { $set: fields });
+        } else {
+          try {
+            await col.insertOne(doc);
+          } catch (insertErr) {
+            if (insertErr.code === 11000) {
+              const { _id, ...fields } = doc;
+              await col.updateOne(matchQuery, { $set: fields });
+            } else {
+              throw insertErr;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`! Note on ${colName} (${doc.title || doc.name || doc.sectionKey || doc._id}): ${err.message}`);
       }
     }
 
     totalCollections++;
     totalDocs += revivedDocs.length;
-    console.log(`+ Seeded ${revivedDocs.length} docs into "${colName}"`);
+    console.log(`+ Seeded/Updated ${revivedDocs.length} docs into "${colName}"`);
   }
 
   console.log(`\n============================================================`);
