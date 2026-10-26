@@ -5,7 +5,7 @@
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <!-- Dynamic AI- & Google-Optimized Sitemap for ISKCON Juhu Self-Excellence -->
-  <!-- Total Indexed URLs: 19 | Generated: 2026-10-26T12:15:33.205Z -->
+  <!-- Total Indexed URLs: 22 | Generated: 2026-10-26T21:19:59.777Z -->
   <url>
     <loc>https://iskconselfexcellence.online/</loc>
     <lastmod>2026-10-26</lastmod>
@@ -138,6 +138,36 @@
       <image:loc>https://iskconselfexcellence.online/assets/pilgrimage-hero.webp</image:loc>
       <image:title>5-Day Sacred Journey to Vrindavana</image:title>
       <image:caption>ISKCON Juhu → Vrindavana → ISKCON Juhu</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://iskconselfexcellence.online/blogs/how-often-should-you-get-your-eyes-tested</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://iskconselfexcellence.online/uploads/service_exam.jpg</image:loc>
+      <image:title>How Often Should You Get Your Eyes Tested? An Optometrist&apos;s Guide</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://iskconselfexcellence.online/blogs/choosing-the-right-frames-for-your-face-shape</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://iskconselfexcellence.online/uploads/collection_womens.jpg</image:loc>
+      <image:title>Choosing the Right Frames for Your Face Shape: The 2024 Style Guide</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://iskconselfexcellence.online/blogs/digital-eye-strain-blue-light-filtering-lenses</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://iskconselfexcellence.online/uploads/cat_bluelight.jpg</image:loc>
+      <image:title>Digital Eye Strain: How Blue-Light Filtering Lenses Protect Your Eyes</image:title>
     </image:image>
   </url>
 </urlset>

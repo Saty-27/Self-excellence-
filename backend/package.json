@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed.js",
+    "seed:local": "node src/seed-self-excellence.js",
     "seed:demo": "node src/seed-demo.js",
     "seed:books": "node src/seed-books.js",
     "test": "node --test tests/*.test.js"
